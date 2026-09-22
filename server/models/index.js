@@ -1,0 +1,23 @@
+import mongoose from 'mongoose'
+
+const { Schema, model } = mongoose
+const list = { type: [String], default: [] }
+
+const projectSchema = new Schema({
+  title: { type: String, required: true, trim: true, maxlength: 160 }, slug: { type: String, required: true, unique: true, trim: true, lowercase: true }, description: { type: String, required: true, trim: true, maxlength: 500 }, fullDescription: { type: String, default: '' }, domain: { type: String, required: true, trim: true }, technologies: list, level: { type: String, enum: ['Beginner', 'Intermediate', 'Advanced'], required: true }, projectType: { type: String, enum: ['Mini Project', 'Final Year Project', 'Real-Time Project'], required: true }, image: { type: String, default: '' }, demoUrl: { type: String, default: '' }, features: list, modules: list, requirements: list, problemStatement: { type: String, default: '' }, objectives: list, price: { type: Number, default: 2999, min: 0, required: true }, published: { type: Boolean, default: true }, trending: { type: Boolean, default: false }, popular: { type: Boolean, default: false }, newProject: { type: Boolean, default: false }, createdAt: { type: Date, default: Date.now } }, { timestamps: true })
+
+const phoneFields = { phoneCountry: String, countryCode: String, phone: String, phoneInternational: String }
+const enquirySchema = new Schema({ studentName: { type: String, required: true, trim: true, maxlength: 120 }, email: { type: String, required: true, lowercase: true, trim: true }, ...phoneFields, degreeCourse: { type: String, trim: true, maxlength: 160 }, college: { type: String, trim: true, maxlength: 180 }, project: { type: Schema.Types.ObjectId, ref: 'Project' }, projectTitle: { type: String, trim: true }, projectPrice: { type: Number, min: 0 }, message: { type: String, trim: true, maxlength: 2000 }, status: { type: String, enum: ['New', 'Contacted', 'Interested', 'Follow-up', 'Completed', 'Closed', 'Converted'], default: 'New' } }, { timestamps: true })
+const customProjectSchema = new Schema({ studentName: { type: String, required: true, trim: true }, email: { type: String, required: true, lowercase: true, trim: true }, ...phoneFields, degreeCourse: { type: String, trim: true }, college: String, domain: String, projectIdea: { type: String, required: true, trim: true }, preferredTechnology: String, description: String, deadline: Date, budget: { type: Number, min: 0 }, status: { type: String, enum: ['New', 'Reviewing', 'Contacted', 'Accepted', 'Requirements Collected', 'Quoted', 'In Progress', 'Completed', 'Closed'], default: 'New' } }, { timestamps: true })
+const internshipSchema = new Schema({ name: { type: String, required: true, trim: true }, email: { type: String, required: true, lowercase: true, trim: true }, ...phoneFields, degreeCourse: String, department: String, college: String, studyYear: String, domain: String, skills: String, experienceLevel: String, portfolioUrl: String, githubUrl: String, linkedinUrl: String, message: String, availabilityDate: Date, status: { type: String, enum: ['New', 'Reviewed', 'Reviewing', 'Shortlisted', 'Interview Scheduled', 'Selected', 'Rejected', 'Joined', 'Completed'], default: 'New' } }, { timestamps: true })
+const messageSchema = new Schema({ name: { type: String, required: true, trim: true }, email: { type: String, required: true, lowercase: true, trim: true }, ...phoneFields, degreeCourse: String, subject: { type: String, required: true, trim: true, maxlength: 160 }, message: { type: String, required: true, trim: true, maxlength: 4000 }, read: { type: Boolean, default: false } }, { timestamps: true })
+const testimonialSchema = new Schema({ studentName: { type: String, required: true, trim: true }, course: String, college: String, project: String, review: { type: String, required: true, trim: true }, avatarUrl: String, published: { type: Boolean, default: false } }, { timestamps: true })
+const adminSchema = new Schema({ email: { type: String, required: true, unique: true, lowercase: true, trim: true }, passwordHash: { type: String, required: true }, role: { type: String, default: 'admin' } }, { timestamps: true })
+
+export const Project = model('Project', projectSchema)
+export const Enquiry = model('Enquiry', enquirySchema)
+export const CustomProject = model('CustomProject', customProjectSchema)
+export const InternshipApplication = model('InternshipApplication', internshipSchema)
+export const ContactMessage = model('ContactMessage', messageSchema)
+export const Testimonial = model('Testimonial', testimonialSchema)
+export const Admin = model('Admin', adminSchema)

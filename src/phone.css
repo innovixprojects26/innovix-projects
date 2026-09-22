@@ -1,0 +1,7 @@
+.phone-field{display:grid;grid-template-columns:minmax(125px,42%) minmax(0,1fr);gap:10px;min-width:0}
+.phone-field .form-field{min-width:0}
+.phone-field select{width:100%;min-width:0;border:1px solid var(--line);background:#fcfcfa;padding:12px;outline:0;font-size:12px;height:42px}
+.phone-field select:focus{border-color:var(--coral)}
+@media(max-width:680px){.phone-field{grid-template-columns:minmax(0,43%) minmax(0,1fr)}}
+.internship-form .form-field select{width:100%;border:1px solid var(--line);background:#fcfcfa;padding:12px;outline:0;font-size:12px;min-height:42px}
+.internship-form .form-field select:focus{border-color:var(--coral)}
