@@ -3,6 +3,8 @@ import { Link, Navigate, NavLink, Route, Routes, useNavigate } from 'react-route
 import { ArrowRight, BarChart3, FileText, FolderKanban, LogOut, Menu, MessageSquare, Shield, Users, X } from 'lucide-react'
 import { adminFetch, apiFetch, getAdminToken } from './api'
 import { Logo, Price } from './components'
+import { TechNewsAdmin } from './TechNewsAdmin'
+import { ContentVideoAdmin } from './ContentVideoAdmin'
 import { resolveInternationalPhone } from '../shared/phone'
 
 function phoneLabel(record) {
@@ -45,13 +47,13 @@ function AdminLogin() {
 function AdminLayout() {
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
-  const links = [['/admin', 'Dashboard', BarChart3], ['/admin/projects', 'Projects', FolderKanban], ['/admin/enquiries', 'Enquiries', MessageSquare], ['/admin/custom-projects', 'Custom Projects', FileText], ['/admin/internships', 'Internships', Users], ['/admin/messages', 'Messages', MessageSquare], ['/admin/testimonials', 'Testimonials', Shield]]
+  const links = [['/admin', 'Dashboard', BarChart3], ['/admin/tech-news', 'Tech News', FileText], ['/admin/projects', 'Projects', FolderKanban], ['/admin/enquiries', 'Enquiries', MessageSquare], ['/admin/custom-projects', 'Custom Projects', FileText], ['/admin/internships', 'Internships', Users], ['/admin/content-creation/videos', 'Content Creation Videos', FileText], ['/admin/messages', 'Messages', MessageSquare], ['/admin/testimonials', 'Testimonials', Shield]]
   if (!getAdminToken()) return <Navigate to="/admin/login" replace />
   const logout = () => { localStorage.removeItem('innovix_admin_token'); navigate('/admin/login', { replace: true }) }
   return <div className="admin-shell">
     {open && <button className="admin-backdrop" aria-label="Close navigation" onClick={() => setOpen(false)} />}
     <aside className={open ? 'admin-sidebar open' : 'admin-sidebar'}><div className="admin-brand"><Logo /><button onClick={() => setOpen(false)} aria-label="Close menu"><X size={18} /></button></div><nav aria-label="Admin navigation">{links.map(([href, label, Icon]) => <NavLink end to={href} onClick={() => setOpen(false)} key={href} className={({ isActive }) => isActive ? 'active' : ''}><Icon size={17} />{label}</NavLink>)}</nav><button className="admin-logout" onClick={logout}><LogOut size={17} /> Log out</button></aside>
-    <div className="admin-main"><header className="admin-topbar"><button className="admin-menu" onClick={() => setOpen(true)} aria-label="Open navigation"><Menu /></button><span>Innovix control room</span><Link to="/">View site <ArrowRight size={15} /></Link></header><Routes><Route path="/" element={<Dashboard />} /><Route path="/projects" element={<AdminProjects />} /><Route path="/enquiries" element={<RequestsPage type="enquiries" />} /><Route path="/custom-projects" element={<RequestsPage type="custom" />} /><Route path="/internships" element={<RequestsPage type="internships" />} /><Route path="/messages" element={<Messages />} /><Route path="/testimonials" element={<TestimonialsAdmin />} /><Route path="*" element={<Navigate to="/admin" replace />} /></Routes></div>
+    <div className="admin-main"><header className="admin-topbar"><button className="admin-menu" onClick={() => setOpen(true)} aria-label="Open navigation"><Menu /></button><span>Innovix control room</span><Link to="/">View site <ArrowRight size={15} /></Link></header><Routes><Route path="/content-creation/videos" element={<ContentVideoAdmin />} /><Route path="/tech-news" element={<TechNewsAdmin />} /><Route path="/" element={<Dashboard />} /><Route path="/projects" element={<AdminProjects />} /><Route path="/enquiries" element={<RequestsPage type="enquiries" />} /><Route path="/custom-projects" element={<RequestsPage type="custom" />} /><Route path="/internships" element={<RequestsPage type="internships" />} /><Route path="/messages" element={<Messages />} /><Route path="/testimonials" element={<TestimonialsAdmin />} /><Route path="*" element={<Navigate to="/admin" replace />} /></Routes></div>
   </div>
 }
 
@@ -77,7 +79,7 @@ function Empty({ children }) { return <div className="admin-empty">{children}</d
 function Dashboard() {
   const { loading, data, error, reload } = useAdminData('/dashboard', {})
   const stats = [['Total Projects', data.projects, FolderKanban], ['Published Projects', data.publishedProjects, FolderKanban], ['Project Enquiries', data.totalEnquiries, MessageSquare], ['New Enquiries', data.enquiries, MessageSquare], ['Custom Project Requests', data.customProjects, FileText], ['Internship Applications', data.internships, Users], ['Contact Messages', data.totalMessages, MessageSquare], ['Unread Messages', data.unreadMessages, MessageSquare], ['Testimonials', data.totalTestimonials, Shield], ['Published Testimonials', data.publishedTestimonials, Shield]]
-  const actions = [['Add Project', '/admin/projects'], ['View Enquiries', '/admin/enquiries'], ['View Custom Projects', '/admin/custom-projects'], ['View Internship Applications', '/admin/internships'], ['View Messages', '/admin/messages'], ['Manage Testimonials', '/admin/testimonials']]
+  const actions = [['Manage Tech News', '/admin/tech-news'], ['Add Project', '/admin/projects'], ['View Enquiries', '/admin/enquiries'], ['View Custom Projects', '/admin/custom-projects'], ['View Internship Applications', '/admin/internships'], ['View Messages', '/admin/messages'], ['Manage Testimonials', '/admin/testimonials']]
   return <AdminPage title="Dashboard" eyebrow="Today at Innovix"><div className="admin-stats">{stats.map(([label, value, Icon]) => <div className="stat-card" key={label}><Icon size={19} /><span>{label}</span><b>{loading ? '—' : value ?? '—'}</b></div>)}</div><LoadState loading={loading} error={error} retry={reload} /><section className="admin-quick-actions"><h2>Quick actions</h2><div>{actions.map(([label, path]) => <Link to={path} key={path}>{label} <ArrowRight size={14} /></Link>)}</div></section><section className="admin-activity"><h2>Recent activity</h2>{!loading && !error && (data.recentActivity?.length ? <div className="admin-activity-list">{data.recentActivity.map((item) => <Link to={item.path} key={item.id}><span><b>{item.type}</b>{item.label}</span><time>{dateText(item.createdAt)}</time></Link>)}</div> : <Empty>New student activity will appear here.</Empty>)}</section></AdminPage>
 }
 function ProjectForm({ project, onSave, onCancel, saving }) {

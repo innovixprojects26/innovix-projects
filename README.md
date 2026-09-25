@@ -25,3 +25,14 @@ Deploy the Vite build as a static site and the Express API as a separate Node we
 - In Atlas, permit the backend service's outbound IPs or ranges; do not add the frontend static host because browsers never connect directly to Atlas. Keep the access list as narrow as the chosen host permits.
 
 After deployment, verify `GET /api/health`, `GET /api/projects` (12 published projects), a direct refresh of `/projects` and `/admin/login`, admin login, and each form against the intended Atlas database. Use the hosting provider's managed HTTPS certificate. The public support email is display-only and does not configure backend mail delivery.
+# Daily Tech News
+
+Students can open `/tech-news`, or use **Today's Tech Update** on the homepage and internship page. Search and category filters show published articles in newest-first order. Drafts and future-dated articles are excluded from public list and detail endpoints.
+
+In **Admin Dashboard → Tech News → Create News**, fill in the article fields, enter takeaways and learning points one per line, and select the publish date (local time). Use **Preview News**, then select **Published** and **Save News** to make it available once the date arrives. Existing articles support editing, featuring, unpublishing, previewing, and deletion.
+
+Run `npm run seed:tech-news` once against the configured MongoDB database to insert the editable AI sample. Re-running it preserves existing edits. This is separate from the project seed and does not change projects or accounts. If you deliberately delete the sample, re-running this command recreates it.
+
+News uses its own MongoDB collection, shared categories, authenticated admin CRUD endpoints at `/api/admin/tech-news`, and public endpoints at `/api/tech-news` and `/api/tech-news/:id`. `/api/tech-news?latest=true` returns at most one article. Full content is plain text and rendered without HTML execution. Future trusted ingestion can write the same document shape and source metadata without changing the frontend; no scraping or external feed is enabled.
+
+Validation: `npm run lint`, `npm run build`, and `node --test server/tech-news.test.js`. The integration test needs the configured MongoDB connection and JWT secret; it creates temporary articles and deletes them in cleanup.

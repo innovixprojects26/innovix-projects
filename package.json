@@ -11,6 +11,7 @@
     "server": "node server/server.js",
     "start": "node server/server.js",
     "seed": "node server/seed.js",
+    "seed:tech-news": "node server/seed-tech-news.js",
     "create-admin": "node server/create-admin.js",
     "reset-admin": "node server/reset-admin.js",
     "dev:full": "concurrently \"npm run dev\" \"npm run server\"",
