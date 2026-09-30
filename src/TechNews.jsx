@@ -1,3 +1,4 @@
+import { useSite } from './site-context'
 import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Clock, Search } from 'lucide-react'
@@ -7,20 +8,21 @@ import { newsFilters } from '../shared/tech-news'
 import './tech-news.css'
 
 function useNews(path) {
+  const { settings } = useSite()
   const [state, setState] = useState({ data: null, loading: true, error: '' })
   const [attempt, setAttempt] = useState(0)
   useEffect(() => {
     let active = true
     apiFetch(path).then((data) => { if (active) setState({ data, loading: false, error: '' }) }).catch((error) => { if (active) setState({ data: null, loading: false, error: error.message }) })
     return () => { active = false }
-  }, [path, attempt])
+  }, [path, attempt, settings])
   return { ...state, retry: () => { setState({ data: null, loading: true, error: '' }); setAttempt((value) => value + 1) } }
 }
 function NewsState({ loading, error, retry }) {
   return <>{loading && <p role="status">Loading tech updates...</p>}{error && <div role="alert"><p>{error}</p><button className="button button-outline" onClick={retry}>Try again</button></div>}</>
 }
 function NewsCard({ article, latest }) {
-  return <article className="news-card"><div className="news-tags"><span>{article.category}</span>{latest && <b>New</b>}{article.featured && <b>Featured</b>}</div><h2>{article.title}</h2><p>{article.description}</p><div className="news-meta"><time dateTime={article.publishDate}>{newsDate(article.publishDate)}</time><span><Clock size={14} /> {article.readTime} min read</span></div><Link className="button button-outline" to={`/tech-news/${article._id}`}>Read Full Update <ArrowRight size={16} /></Link></article>
+  return <article className={`news-card${article.featured ? ' news-card-featured' : ''}`}><div className="news-tags"><span>{article.category}</span>{latest && <b>New</b>}{article.featured && <b>Featured</b>}</div><h2>{article.title}</h2><p>{article.description}</p><div className="news-meta"><time dateTime={article.publishDate}>{newsDate(article.publishDate)}</time><span><Clock size={14} /> {article.readTime} min read</span></div><Link className="button button-outline" to={`/tech-news/${article._id}`}>Read Full Update <ArrowRight size={16} /></Link></article>
 }
 export function TechNewsPage() {
   const state = useNews('/tech-news')
@@ -43,7 +45,9 @@ function NewsDetail({ id }) {
   return <section className="section container news-detail"><Link className="back-link" to="/tech-news"><ArrowLeft size={16} /> Back to Daily Tech News</Link><NewsState {...state} />{state.data && <NewsArticle article={state.data} />}</section>
 }
 export function TodayTechUpdate() {
+  const { settings } = useSite()
   const state = useNews('/tech-news?latest=true')
   const article = state.data?.[0]
+  if (!settings.newsEnabled || !settings.techNewsEnabled) return null
   return <section className="section container"><div className="news-today"><div><span className="eyebrow">Daily Tech News</span><h2>Today’s Tech Update</h2><Link className="text-link" to="/tech-news">View All Tech News <ArrowRight size={16} /></Link></div><div><NewsState {...state} />{article && <><div className="news-tags"><span>{article.category}</span></div><h3>{article.title}</h3><p>{article.description}</p><time dateTime={article.publishDate}>{newsDate(article.publishDate)}</time><Link className="text-link" to={`/tech-news/${article._id}`}>Read Full Update <ArrowRight size={16} /></Link></>}{!state.loading && !state.error && !article && <p>Your next learning update is coming soon.</p>}</div></div></section>
 }

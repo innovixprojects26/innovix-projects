@@ -1,8 +1,10 @@
+import { publicConfiguration } from '../controllers/management.js'
 import { Router } from 'express'
 import { listNews, readNews } from '../controllers/tech-news.js'
 import { createContact, createCustomProject, createEnquiry, createInternship, listProjects, listTestimonials } from '../controllers/public.js'
 
 const router = Router()
+router.get('/configuration', publicConfiguration)
 router.get('/tech-news', listNews)
 router.get('/tech-news/:id', readNews)
 router.get('/projects', listProjects)

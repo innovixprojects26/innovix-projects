@@ -7,7 +7,8 @@ import { checkStudentOrigin, csrfFor, hashToken, readStudentToken, requireStuden
 import { fail, respond, validateEmail } from '../utils/api.js'
 import { normalizePhone } from '../../shared/phone.js'
 import { passwordError, studentDomains, studyYears } from '../../shared/student.js'
-import { liveClasses } from '../../src/data.js'
+import { BatchEnrollment } from '../models/learning.js'
+import { getConfig, getDomain } from '../models/management.js'
 import { resetEmailConfigured, sendStudentResetEmail } from '../services/student-reset-email.js'
 
 const dummyHash = bcrypt.hash(randomBytes(32).toString('hex'), 12)
@@ -44,7 +45,7 @@ export function createStudentRouter({ emailConfigured = resetEmailConfigured, se
   router.post('/login', limiter(20), checkStudentOrigin, async (req, res) => {
     const { password, rememberMe = false } = req.body || {}
     const email = normalizeEmail(req.body?.email)
-    if (!validEmail(email) || typeof password !== 'string' || !password || Buffer.byteLength(password) > 72 || typeof rememberMe !== 'boolean') return fail(res, invalidCredentials, 401)
+    if (!validEmail(email) || typeof password !== 'string' || !password || password.length > 72 || typeof rememberMe !== 'boolean') return fail(res, invalidCredentials, 401)
     const student = await Student.findOne({ email }).select('+passwordHash +authVersion')
     const matches = await bcrypt.compare(password, student?.passwordHash || await dummyHash)
     if (!matches || !student || student.accountStatus !== 'active') return fail(res, invalidCredentials, 401)
@@ -59,14 +60,15 @@ export function createStudentRouter({ emailConfigured = resetEmailConfigured, se
   })
 
   router.get('/me', requireStudent, (req, res) => respond(res, { student: studentDto(req.student), csrfToken: csrfFor(req.studentToken), expiresAt: req.studentSession.expiresAt }))
-  router.get('/dashboard', requireStudent, (req, res) => respond(res, {
+  router.get('/dashboard', requireStudent, async (req, res) => { const track = await getDomain(req.student.internshipDomain); const enrollment = (await getConfig()).settings.batchesEnabled ? await BatchEnrollment.findOne({ student: req.student._id, status: { $in: ['Enrolled', 'Completed'] } }).sort({ createdAt: -1 }).populate('batch').lean() : null; return respond(res, {
     student: studentDto(req.student),
-    internshipStatus: 'Account registered',
-    internshipStatusNote: 'Creating an account does not confirm internship selection. Use the existing application form or contact Innovix for enrollment status.',
-    liveClassUrl: liveClasses.find((item) => item.name === req.student.internshipDomain)?.meetLink || null,
-    recordedClassesAvailable: req.student.internshipDomain === 'Content Creation',
+    internshipStatus: enrollment?.batch ? `${enrollment.status === 'Completed' ? 'Completed' : enrollment.batch.status} - ${enrollment.batch.name}` : 'Account registered',
+    internshipStatusNote: enrollment?.batch ? `Batch ${enrollment.batch.code} - Mentor: ${enrollment.batch.mentor}. See your learning progress and requirements below.` : 'Creating an account does not confirm internship selection. Use the existing application form or contact Innovix for enrollment status.',
+    liveClassUrl: track?.active && track.liveClassEnabled && track.classActive ? track.meetingUrl : null,
+    liveClass: track?.active && track.liveClassEnabled && track.classActive ? { title: track.classTitle, date: track.date, startTime: track.startTime, description: track.description } : null,
+    recordedClassesAvailable: req.student.internshipDomain === 'Content Creation' && Boolean(track?.active && track.recordedClassesEnabled),
     learningProgress: null,
-  }))
+  }) })
   router.post('/logout', checkStudentOrigin, requireStudent, requireStudentCsrf, async (req, res) => {
     await StudentSession.deleteOne({ _id: req.studentSession._id })
     res.clearCookie(studentCookieName(), studentCookieOptions())

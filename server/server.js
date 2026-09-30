@@ -1,3 +1,8 @@
+import { learningStudentRoutes, learningAdminRoutes, certificatePublicRoutes } from './routes/learning.js'
+import { initializeLearningModels } from './models/learning.js'
+import { discoverStudentRoutes, discoverAdminRoutes } from './routes/discover.js'
+import { ensureDiscoverCategories } from './models/discover.js'
+import { ensureDomains } from './models/management.js'
 import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
@@ -11,6 +16,7 @@ import adminRoutes from './routes/admin.js'
 import { contentVideoAdminRoutes, contentVideoPublicRoutes } from './routes/content-videos.js'
 import studentRoutes from './routes/student.js'
 import { studentCookieOptions } from './middleware/student-auth.js'
+import { createApiLimiters } from './middleware/api-limits.js'
 
 const app = express()
 if (env.trustProxyHops) app.set('trust proxy', env.trustProxyHops)
@@ -20,8 +26,13 @@ app.use(cors({ origin: env.clientUrl, credentials: false }))
 app.use(express.json({ limit: '1mb' }))
 app.get('/api/health', (_req, res) => res.json({ success: true, data: { service: 'innovix-api', database: Boolean(env.mongoUri) } }))
 app.use('/api/admin/login', rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: 'draft-7', legacyHeaders: false }))
-app.use('/api', rateLimit({ windowMs: 15 * 60 * 1000, limit: 120, standardHeaders: 'draft-7', legacyHeaders: false }))
+app.use('/api', ...createApiLimiters())
+app.use('/api/student/learning', learningStudentRoutes)
+app.use('/api/admin/learning', learningAdminRoutes)
+app.use('/api/certificates/verify', certificatePublicRoutes)
+app.use('/api/student/discover', discoverStudentRoutes)
 app.use('/api/student', studentRoutes)
+app.use('/api/admin/discover', discoverAdminRoutes)
 app.use('/api/content-creation/videos', contentVideoPublicRoutes)
 app.use('/api/admin/content-creation/videos', contentVideoAdminRoutes)
 app.use('/api', publicRoutes)
@@ -45,6 +56,9 @@ async function start() {
   studentCookieOptions()
   await connectDatabase()
   await ensureAdmin()
+  await ensureDomains()
+  await ensureDiscoverCategories()
+  await initializeLearningModels()
   server = app.listen(env.port, () => console.log(`Innovix API listening on port ${env.port}`))
 }
 start().catch((error) => { console.error('Server startup failed:', error.message); process.exitCode = 1 })

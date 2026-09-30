@@ -4,12 +4,14 @@ import { FormField, Toast } from './components'
 import { PhoneField } from './PhoneField'
 import { submitPublic } from './api'
 import { normalizePhone } from '../shared/phone'
-import { internshipRoles } from './data'
+import { useSite } from './site-context'
 
-const roles = [...internshipRoles, 'Frontend Development', 'Python Development', 'UI/UX Design']
+
 const levels = ['Beginner', 'Some experience', 'Intermediate', 'Advanced']
 
 export function InternshipForm() {
+  const { domains, settings } = useSite()
+  const roles = domains.filter(item => item.active && item.applicationsOpen).map(item => item.name)
   const fields = useRef({})
   const formRef = useRef(null)
   const [sending, setSending] = useState(false)
@@ -43,6 +45,7 @@ export function InternshipForm() {
       setSending(false)
     }
   }
+  if (!settings.internshipsEnabled || !settings.internshipApplicationsEnabled || !roles.length) return <p className="availability-notice" id="internship-application">Applications are currently closed for this internship.</p>
   return <form ref={formRef} className="form-card internship-form" id="internship-application" onSubmit={submit} onKeyDown={(event) => { if (event.key === 'Enter' && event.target.tagName !== 'TEXTAREA' && event.target.tagName !== 'BUTTON') event.preventDefault() }}>
     <span className="eyebrow">Apply for internship</span><h2>Tell us about yourself and the work you want to explore.</h2>
     <div className="form-two"><FormField label="Full name" name="name" required ref={field('name')} onKeyDown={(event) => focusNext(event, 'email')} /><FormField label="Email" name="email" type="email" required ref={field('email')} onKeyDown={(event) => focusNext(event, 'country')} /></div>

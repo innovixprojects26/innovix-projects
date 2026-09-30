@@ -8,7 +8,7 @@ The desktop and mobile navigation already linked to `/login`, but the shared `Au
 
 1. Configure the existing backend environment and start `npm run dev:full`.
 2. Open the frontend at the exact `CLIENT_URL` (normally `http://localhost:5173`). Select **Log in → Create Account**.
-3. Enter all registration fields. Select one of the existing internship domains, including Content Creation or Data Analytics. Passwords require at least 10 characters, uppercase, lowercase and a digit, and at most 72 UTF-8 bytes.
+3. Enter all registration fields. Select one of the existing internship domains, including Content Creation or Data Analytics. New passwords require 8–72 characters, at least one uppercase letter (A-Z), one lowercase letter (a-z), one number (0-9), and one ASCII punctuation/special character (for example ! @ # $ % ^ & * _ - + = ?). Common or easily guessed passwords are rejected. Password and Confirm Password must match.
 4. Registration returns to Login. Log in with the account you just created. **Remember Me** creates a 30-day persistent cookie; without it the cookie lasts for the browser session, with a 12-hour server expiration.
 5. `/student` displays your account and domain-specific links. Open the account menu to find Dashboard, My Internship and Logout. Refresh restores the session from the backend.
 6. Logout deletes the server session and expires its cookie. Reusing that cookie cannot access protected APIs. Browser tabs are notified to refresh account state.
@@ -66,3 +66,15 @@ API tests create uniquely named temporary MongoDB databases and delete them afte
 UI tests render the actual React components and check desktop/mobile navigation, form fields, profile menus, anonymous protected-content exclusion, and safe return paths. They are not real-browser click, responsive-layout or codec-playback tests. No connected browser was available for those checks.
 
 No real student accounts are seeded. Create a test account through `/register` with an email you control; the integration tests clean up their own temporary accounts. No deployment or GitHub push was performed.
+
+## Final new-password policy and live feedback
+
+The policy applies only to registration and choosing a new password through reset. Existing accounts are not migrated or forced to reset; login still verifies the existing bcrypt hash without applying the new-password rules. Hashing, sessions, cookies, CSRF, Remember Me and admin authentication are unchanged.
+
+`shared/student-password.js` is the single source for policy checks, checklist labels, error text and strength assessment. Both backend registration/reset handlers use it through `shared/student.js`. Both forms display a live Weak / Medium / Strong indicator and six requirement checks under the password field. Submission stays disabled until all requirements pass and confirmation matches; submit handlers and the backend independently revalidate.
+
+Strong means all six password requirements pass. Medium means the length and uncommon-password checks pass and at least four requirements are met. Otherwise the indicator shows Weak. Strength is policy feedback, not an estimate of cracking time.
+
+Weak-password checks reject common password words and common substitutions, simple common-word-plus-digits combinations, and sequential, keyboard or repeated patterns dominating the alphanumeric portion. They are deterministic local checks, not an exhaustive breached-password database. They accept Manoj@2026, Innovix#26A, Learn@Code9, Student#84X and Build&Grow26A; they reject the supplied weak examples and variants such as Password123!, P@ssw0rd123!, Student123!, Qwerty123! and A12345678!.
+
+The authentication tests cover weak-password registration/reset rejection, successful strong-password registration/login/reset, confirmation mismatches, and unchanged login for a pre-existing weak-password account in the isolated test database. UI validation tests cover requirement/strength states, initial submission gating and shared limits on both forms.

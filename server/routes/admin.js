@@ -1,3 +1,4 @@
+import { audit, validateId, readConfig, saveConfig, listDomains, updateDomain, students, studentStatus, announcements, saveAnnouncement, deleteAnnouncement, adminProfile, activity } from '../controllers/management.js'
 import { Router } from 'express'
 import { adminNews, saveNews, deleteNews } from '../controllers/tech-news.js'
 import { createProject, createTestimonial, dashboard, adminProjects, deleteMessage, deleteProject, deleteTestimonial, listAdminTestimonials, listCollection, listMessages, login, updateMessageRead, updateProject, updateStatus, updateTestimonial } from '../controllers/admin.js'
@@ -6,6 +7,21 @@ import { requireAuth } from '../middleware/auth.js'
 const router = Router()
 router.post('/login', login)
 router.use(requireAuth)
+router.use((_req, res, next) => { res.set('Cache-Control', 'no-store'); next() })
+router.use(audit)
+router.param('id', (req, res, next) => validateId(req, res, next))
+router.get('/configuration', readConfig)
+router.put('/configuration/:section', saveConfig)
+router.get('/internship-domains', listDomains)
+router.patch('/internship-domains/:id', updateDomain)
+router.get('/students', students)
+router.patch('/students/:id/account-status', studentStatus)
+router.get('/announcements', announcements)
+router.post('/announcements', saveAnnouncement)
+router.put('/announcements/:id', saveAnnouncement)
+router.delete('/announcements/:id', deleteAnnouncement)
+router.get('/profile', adminProfile)
+router.get('/activity', activity)
 router.get('/tech-news', adminNews)
 router.post('/tech-news', saveNews)
 router.put('/tech-news/:id', saveNews)

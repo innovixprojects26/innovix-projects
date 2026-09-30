@@ -13,6 +13,17 @@ import { hashToken, studentCookieOptions, studentCookieName } from './middleware
 import { contentVideoPublicRoutes } from './routes/content-videos.js'
 import adminRoutes from './routes/admin.js'
 import { liveClasses } from '../src/data.js'
+import { passwordError } from '../shared/student.js'
+
+test('new student passwords enforce composition, weak-pattern protection and confirmation', () => {
+  for (const password of ['Manoj@2026', 'Innovix#26A', 'Learn@Code9', 'Student#84X', 'Build&Grow26A', 'R8!mV2#z', 'R8!mV2#z'.repeat(9)]) {
+    assert.equal(passwordError(password, password), '', `Should accept ${password}`)
+    assert.equal(passwordError(password, `${password}x`), 'Passwords do not match.')
+  }
+  for (const password of ['12345678', '123456789', '87654321', 'abcdefgh', 'qwerty123', 'password', 'password123', 'Password123', 'student123', 'innovix123', '11111111', '00000000', 'aaaaaaaa', 'abc12345', 'Password123!', 'P@ssw0rd123!', 'Student123!', 'Innovix2026!', 'Qwerty123!', 'Abcdef1!', 'A12345678!', 'A87654321!', 'Aa111111!', 'AbAbAbAb1!', 'Qazwsx1!', 'LearnCode9', 'learn@code9', 'LEARN@CODE9', 'Learn@Code', 'Aa1!xyz', 'R8!mV2#z'.repeat(9) + 'a', '', null, 12345678]) {
+    assert.ok(passwordError(password, password), `Should reject ${password}`)
+  }
+})
 
 test('student registration, login, sessions, CSRF, reset, domain access and admin separation', async () => {
   const dbName = `ist_${randomUUID().replaceAll('-', '')}`
@@ -41,9 +52,9 @@ test('student registration, login, sessions, CSRF, reset, domain access and admi
       assert.ok(!JSON.stringify(result).includes('resetTokenHash'), 'Reset hashes must never be returned')
       return { status: response.status, cookie: response.headers.get('set-cookie'), ...result }
     }
-    const password = 'StudentTest123!'
+    const password = 'Manoj@2026'
     const fixture = { fullName: 'Test Learner', email: 'student-auth-test@example.invalid', phoneCountry: 'IN', phone: '9876543210', college: 'Test College', course: 'Computer Science', yearOfStudy: '3rd Year', internshipDomain: 'Content Creation', password, confirmPassword: password }
-    for (const changes of [{ password: 'short' }, { confirmPassword: 'different' }, { phone: '123' }, { email: 'invalid' }, { college: '' }, { internshipDomain: 'Unknown' }]) {
+    for (const changes of [{ password: '1234567', confirmPassword: '1234567' }, { password: 'a'.repeat(73), confirmPassword: 'a'.repeat(73) }, { password: 'Password123!', confirmPassword: 'Password123!' }, { confirmPassword: 'different' }, { phone: '123' }, { email: 'invalid' }, { college: '' }, { internshipDomain: 'Unknown' }]) {
       assert.equal((await request('/student/register', 'POST', { ...fixture, ...changes })).status, 400)
     }
     const created = await request('/student/register', 'POST', { ...fixture, accountStatus: 'suspended', authVersion: 100, studentId: 'attacker', role: 'admin' })
@@ -105,9 +116,13 @@ test('student registration, login, sessions, CSRF, reset, domain access and admi
     await Student.updateOne({ _id: record._id }, { $set: { accountStatus: 'active' } })
     await StudentSession.updateMany({ student: record._id }, { $set: { expiresAt: new Date(Date.now() - 1000) } })
     assert.equal((await request('/student/me', 'GET', undefined, rememberHeaders)).status, 401)
-    const analytics = await request('/student/register', 'POST', { ...fixture, email: 'analytics-test@example.invalid', internshipDomain: 'Data Analytics' })
-    assert.equal(analytics.status, 201)
-    const analyticsLogin = await request('/student/login', 'POST', { email: 'analytics-test@example.invalid', password })
+    const analyticsPassword = 'é'.repeat(72)
+    // Existing legacy account: the new-password policy must never run during login.
+    const legacyHash = await bcrypt.hash(analyticsPassword, 12)
+    const analytics = await Student.create({ fullName: 'Existing Student', email: 'analytics-test@example.invalid', phone: '+919876543210', college: 'Test College', course: 'Analytics', yearOfStudy: '3rd Year', internshipDomain: 'Data Analytics', passwordHash: legacyHash })
+    const analyticsLogin = await request('/student/login', 'POST', { email: 'analytics-test@example.invalid', password: analyticsPassword })
+    assert.equal(analyticsLogin.status, 200)
+    assert.equal((await Student.findById(analytics._id).select('+passwordHash')).passwordHash, legacyHash)
     const analyticsHeaders = { Cookie: analyticsLogin.cookie.split(';')[0] }
     assert.equal((await request('/content-creation/videos', 'GET', undefined, analyticsHeaders)).status, 403)
     const analyticsDashboard = (await request('/student/dashboard', 'GET', undefined, analyticsHeaders)).data
@@ -125,8 +140,11 @@ test('student registration, login, sessions, CSRF, reset, domain access and admi
     assert.equal(resetRecord.resetTokenHash, hashToken(capturedToken))
     assert.ok(resetRecord.resetExpiresAt > new Date())
     const beforeReset = await request('/student/login', 'POST', { email: fixture.email, password })
-    const newPassword = 'NewStudentTest456!'
+    const newPassword = 'Learn@Code9'
     const resetBody = { token: capturedToken, password: newPassword, confirmPassword: newPassword }
+    for (const changes of [{ password: '1234567', confirmPassword: '1234567' }, { password: 'a'.repeat(73), confirmPassword: 'a'.repeat(73) }, { password: '12345678', confirmPassword: '12345678' }, { password: 'Password123!', confirmPassword: 'Password123!' }, { confirmPassword: 'different' }]) {
+      assert.equal((await request('/student/reset-password', 'POST', { ...resetBody, ...changes })).status, 400)
+    }
     const reset = await request('/student/reset-password', 'POST', resetBody)
     assert.equal(reset.status, 200)
     assert.equal((await request('/student/reset-password', 'POST', resetBody)).status, 400)

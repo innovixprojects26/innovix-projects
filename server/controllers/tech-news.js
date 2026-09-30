@@ -1,3 +1,4 @@
+import { getConfig } from '../models/management.js'
 import mongoose from 'mongoose'
 import { TechNews } from '../models/tech-news.js'
 import { respond, fail } from '../utils/api.js'
@@ -5,11 +6,15 @@ import { respond, fail } from '../utils/api.js'
 const fields = ['title', 'category', 'description', 'content', 'keyTakeaways', 'studentsShouldLearn', 'careerTip', 'readTime', 'publishDate', 'featured', 'status']
 export const publishedNewsQuery = (now = new Date()) => ({ status: 'published', publishDate: { $lte: now } })
 export async function listNews(req, res) {
+  const { settings } = await getConfig()
+  if (!settings.newsEnabled || !settings.techNewsEnabled) return respond(res, [])
   const query = TechNews.find(publishedNewsQuery()).sort({ publishDate: -1, _id: -1 }).select('-content -keyTakeaways -studentsShouldLearn -careerTip -source')
   if (req.query.latest === 'true') query.limit(1)
   return respond(res, await query.lean())
 }
 export async function readNews(req, res) {
+  const { settings } = await getConfig()
+  if (!settings.newsEnabled || !settings.techNewsEnabled) return fail(res, 'Tech News is currently unavailable.', 404)
   if (!mongoose.isObjectIdOrHexString(req.params.id)) return fail(res, 'News article not found', 404)
   const article = await TechNews.findOne({ _id: req.params.id, ...publishedNewsQuery() }).lean()
   return article ? respond(res, article) : fail(res, 'News article not found', 404)

@@ -1,6 +1,7 @@
 import mongoose from 'mongoose'
 
 const schema = new mongoose.Schema({
+  domain: { type: String, default: 'Content Creation', index: true },
   title: { type: String, required: true, trim: true, maxlength: 180 },
   module: { type: String, required: true, trim: true, maxlength: 120 },
   description: { type: String, required: true, trim: true, maxlength: 1000 },

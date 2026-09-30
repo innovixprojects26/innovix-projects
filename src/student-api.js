@@ -1,7 +1,7 @@
 import { API_BASE } from './api'
 
 export function safeStudentReturnTo(value) {
-  return typeof value === 'string' && /^\/student(?:\/(?:internship|recorded-classes))?(?:[?#].*)?$/.test(value) ? value : '/student'
+  return typeof value === 'string' && /^\/student(?:\/(?:internship|recorded-classes|tasks|certificates))?(?:[?#].*)?$/.test(value) ? value : '/student'
 }
 export async function studentFetch(path, options = {}) {
   const response = await fetch(`${API_BASE}${path}`, { ...options, credentials: 'include', cache: 'no-store', signal: options.signal || AbortSignal.timeout(15000), headers: { 'Content-Type': 'application/json', ...(options.headers || {}) } })

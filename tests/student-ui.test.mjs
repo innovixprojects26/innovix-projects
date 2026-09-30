@@ -9,7 +9,7 @@ test('student form rendering, desktop/mobile account controls, guard and safe re
   const vite = await createServer({ server: { middlewareMode: true }, appType: 'custom' })
   try {
     const { StudentSessionContext } = await vite.ssrLoadModule('/src/student-session-context.js')
-    const { StudentLogin, StudentRegistration, StudentForgotPassword, StudentResetPassword } = await vite.ssrLoadModule('/src/StudentAuth.jsx')
+    const { StudentLogin, StudentRegistration, StudentForgotPassword, StudentResetPassword, StudentPasswordStrength } = await vite.ssrLoadModule('/src/StudentAuth.jsx')
     const { Navbar } = await vite.ssrLoadModule('/src/components.jsx')
     const { RequireStudent } = await vite.ssrLoadModule('/src/StudentSession.jsx')
     const { safeStudentReturnTo } = await vite.ssrLoadModule('/src/student-api.js')
@@ -28,6 +28,23 @@ test('student form rendering, desktop/mobile account controls, guard and safe re
     const registration = render(StudentRegistration)
     for (const name of ['fullName', 'email', 'phone', 'phoneCountry', 'college', 'course', 'yearOfStudy', 'internshipDomain', 'password', 'confirmPassword']) assert.ok(registration.includes(`name="${name}"`), name)
     for (const domain of ['Content Creation', 'Data Analytics', 'Full Stack Development']) assert.ok(registration.includes(domain))
+    const resetForm = render(StudentResetPassword, null, {}, `/reset-password#token=${'a'.repeat(64)}`)
+    for (const form of [registration, resetForm]) {
+      assert.equal((form.match(/minLength="8"/g) || []).length, 2)
+      for (const input of form.match(/<input[^>]+type="password"[^>]*>/g) || []) assert.match(input, /maxLength="72"/)
+      assert.ok(form.includes('Use 8–72 characters with uppercase and lowercase letters'))
+      assert.ok(form.includes('Password strength:'))
+      assert.equal((form.match(/data-met="false"/g) || []).length, 6)
+      assert.match(form, /<button class="button button-dark" disabled=""/)
+      assert.ok(!form.includes('at least 10 characters'))
+    }
+    for (const [password, strength, met] of [['', 'Weak', 0], ['12345678', 'Weak', 2], ['Password123!', 'Weak', 5], ['LearnCode9', 'Medium', 5], ['Learn@Code9', 'Strong', 6]]) {
+      const feedback = render(StudentPasswordStrength, null, { password })
+      assert.ok(feedback.includes(`<strong>${strength}</strong>`))
+      assert.equal((feedback.match(/data-met="true"/g) || []).length, met)
+      for (const label of ['Be 8–72 characters', 'Include an uppercase letter', 'Include a lowercase letter', 'Include a number', 'Include a special character', 'Not be a common or easily guessed password']) assert.ok(feedback.includes(label))
+    }
+    assert.ok(!login.includes('Password strength:'))
     assert.ok(render(StudentForgotPassword).includes('Request reset link'))
     assert.ok(render(StudentResetPassword).includes('Open the complete reset link'))
     const secret = createElement('div', null, 'Protected student content')

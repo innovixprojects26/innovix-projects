@@ -1,3 +1,4 @@
+import { useSite } from './site-context'
 import { useRef, useState } from 'react'
 import { ArrowRight } from 'lucide-react'
 import { FormField, Toast } from './components'
@@ -6,6 +7,7 @@ import { submitPublic } from './api'
 import { normalizePhone } from '../shared/phone'
 
 export function ContactForm() {
+  const { settings } = useSite()
   const fields = useRef({})
   const formRef = useRef(null)
   const [sending, setSending] = useState(false)
@@ -38,6 +40,7 @@ export function ContactForm() {
       setSending(false)
     }
   }
+  if (!settings.contactEnabled) return <p className="availability-notice">The contact form is currently unavailable.</p>
   return <form ref={formRef} className="form-card" onSubmit={submit} onKeyDown={(event) => { if (event.key === 'Enter' && event.target.tagName !== 'TEXTAREA' && event.target.tagName !== 'BUTTON') event.preventDefault() }}>
     <h2>Send an enquiry</h2><p>We usually respond within one working day.</p>
     <div className="form-two"><FormField label="Your name" name="name" required ref={field('name')} onKeyDown={(event) => focusNext(event, 'email')} /><FormField label="Email address" name="email" type="email" required ref={field('email')} onKeyDown={(event) => focusNext(event, 'country')} /></div>

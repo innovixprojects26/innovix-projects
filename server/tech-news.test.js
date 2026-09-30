@@ -2,17 +2,19 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import express from 'express'
 import jwt from 'jsonwebtoken'
-import { connectDatabase, closeDatabase } from './config/db.js'
+import mongoose from 'mongoose'
+import { randomUUID } from 'node:crypto'
 import { env } from './config/env.js'
 import publicRoutes from './routes/public.js'
 import adminRoutes from './routes/admin.js'
 import { TechNews } from './models/tech-news.js'
 
 test('news API: authentication, validation, draft visibility, publishing, editing and deletion', async () => {
+  const dbName = `news_${randomUUID().replaceAll('-', '')}`
   let server
   const ids = []
   try {
-    if (!await connectDatabase()) throw new Error('Configure MONGODB_URI to run the integration test.')
+    await mongoose.connect(env.mongoUri, { dbName, serverSelectionTimeoutMS: 15000 })
     const app = express()
     app.use(express.json())
     app.use('/api/admin', adminRoutes)
@@ -63,6 +65,6 @@ test('news API: authentication, validation, draft visibility, publishing, editin
   } finally {
     if (ids.length) await TechNews.deleteMany({ _id: { $in: ids } })
     if (server) await new Promise((resolve) => server.close(resolve))
-    await closeDatabase()
+    try { if (mongoose.connection.name === dbName) await mongoose.connection.dropDatabase() } finally { await mongoose.disconnect() }
   }
 })

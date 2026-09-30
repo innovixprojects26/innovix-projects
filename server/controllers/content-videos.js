@@ -1,3 +1,4 @@
+import { recordingEnabled } from '../models/management.js'
 import mongoose from 'mongoose'
 import jwt from 'jsonwebtoken'
 import { createHmac } from 'node:crypto'
@@ -7,15 +8,16 @@ import { fail, respond } from '../utils/api.js'
 import { loadStudentSession } from '../middleware/student-auth.js'
 import { mediaTypes, receiveMedia, removeMedia, storagePath } from '../storage/content-videos.js'
 
-const visible = () => ({ status: 'published', publishDate: { $lte: new Date() }, videoFile: { $exists: true, $ne: null } })
+const contentDomain = { $or: [{ domain: 'Content Creation' }, { domain: { $exists: false } }] }
+const visible = () => ({ ...contentDomain, status: 'published', publishDate: { $lte: new Date() }, videoFile: { $exists: true, $ne: null } })
 const order = { position: 1, _id: 1 }
 const locks = new Set()
 const previewSecret = () => createHmac('sha256', env.jwtSecret).update('content-creation-media-preview').digest('hex')
 export function videoDto(item) {
   return { _id: item._id, title: item.title, module: item.module, description: item.description, publishDate: item.publishDate, status: item.status, duration: item.duration, position: item.position, hasVideo: Boolean(item.videoFile), hasThumbnail: Boolean(item.thumbnailFile) }
 }
-export async function listContentVideos(_req, res) { return respond(res, (await ContentVideo.find(visible()).sort(order).lean()).map(videoDto)) }
-export async function adminContentVideos(_req, res) { return respond(res, (await ContentVideo.find().sort(order).lean()).map(videoDto)) }
+export async function listContentVideos(_req, res) { if (!await recordingEnabled()) return fail(res, 'Recorded classes are currently unavailable.', 403); return respond(res, (await ContentVideo.find(visible()).sort(order).lean()).map(videoDto)) }
+export async function adminContentVideos(_req, res) { return respond(res, (await ContentVideo.find(contentDomain).sort(order).lean()).map(videoDto)) }
 
 export async function withVideo(req, res, next) {
   const id = req.params.id
@@ -104,6 +106,7 @@ export async function streamContentMedia(req, res, next) {
     } catch { return fail(res, 'Preview expired. Open Preview again from Admin.', 401) }
   }
   if (!preview) {
+    if (!await recordingEnabled()) return fail(res, 'Recorded classes are currently unavailable.', 403)
     if (!await loadStudentSession(req)) return fail(res, 'Please log in to watch recorded classes.', 401)
     if (req.student.internshipDomain !== 'Content Creation') return fail(res, 'These recorded classes are for Content Creation students.', 403)
   }

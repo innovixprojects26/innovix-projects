@@ -11,6 +11,7 @@ const schema = new mongoose.Schema({
   yearOfStudy: { ...requiredText(40), enum: studyYears },
   internshipDomain: { ...requiredText(100), enum: studentDomains },
   passwordHash: { type: String, required: true, select: false },
+  leaderboardExcluded: { type: Boolean, default: false },
   accountStatus: { type: String, enum: ['active', 'suspended'], default: 'active' },
   authVersion: { type: Number, default: 0, select: false },
   resetTokenHash: { type: String, select: false },

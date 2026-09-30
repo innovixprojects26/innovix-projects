@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
-import { ArrowRight, Award, BookOpen, Check, Compass, FileText, Laptop, Rocket, Sparkles } from 'lucide-react'
-import { internshipRoles } from './data'
+import { ArrowRight, Check, FileText, Laptop, Rocket, Sparkles } from 'lucide-react'
+import { useSite } from './site-context'
 import { SectionHeading } from './components'
 
 const internshipBenefits = [
@@ -17,6 +17,8 @@ const packages = [
 ]
 
 export function HomeInternship() {
+  const { settings } = useSite()
+  if (!settings.internshipsEnabled) return null
   return <section className="section home-internship" id="internship-highlight"><div className="container home-internship-grid">
     <div className="home-internship-intro"><span className="eyebrow">Internships at Innovix</span><h2>Learn the work.<br /><em>Then do the work.</em></h2><p>Explore internship opportunities built around practical learning, real-time project exposure, technical guidance, and skills you can carry into your career.</p><div className="home-internship-actions"><a className="button button-light" href="/internships#internship-application">Apply Now <ArrowRight size={16} /></a><Link className="text-link" to="/internships">Explore Internships <ArrowRight size={16} /></Link></div><span className="home-internship-note">Open to students from different academic backgrounds.</span></div>
     <div className="home-internship-benefits">{internshipBenefits.map(([title, description], index) => <article key={title}><span>0{index + 1}</span><div><h3>{title}</h3><p>{description}</p></div><Check size={18} /></article>)}</div>
@@ -24,6 +26,9 @@ export function HomeInternship() {
 }
 
 export function InternshipDomains() {
+  const { domains, settings } = useSite()
+  if (!settings.internshipsEnabled) return null
+  const internshipRoles = domains.map(item => item.name)
   return <section className="section container home-opportunities"><SectionHeading eyebrow="Internship opportunities" title="Find a track to grow in." description="Choose a role that matches your interests. Your course or degree does not have to be in Computer Science." action={<Link className="text-link" to="/internships">See the internship program <ArrowRight size={16} /></Link>} /><div className="opportunity-grid">{internshipRoles.map((role, index) => <a href="/internships#internship-application" className="opportunity-card" key={role}><span>0{index + 1}</span><h3>{role}</h3><ArrowRight size={17} /></a>)}</div></section>
 }
 
@@ -32,9 +37,11 @@ export function PricingSection({ compact = false }) {
 }
 
 export function AboutPage() {
+  const { homepage, services, domains } = useSite()
+  const internshipRoles = domains.map(item => item.name)
   return <>
-    <section className="about-hero"><div className="container"><span className="eyebrow">About Innovix Projects</span><h1>Experience that helps you<br /><em>move forward.</em></h1><p>Innovix Projects is a student-focused platform for internships, practical learning, real-time project exposure, skill development, academic project work, and technical guidance.</p><div className="about-hero-actions"><a className="button button-dark" href="/internships#internship-application">Apply for an Internship <ArrowRight size={16} /></a><Link className="button button-outline" to="/projects">Explore Projects <ArrowRight size={16} /></Link></div></div></section>
-    <section className="section container about-service"><div className="about-service-heading"><span className="eyebrow">01 / Internships first</span><h2>Practice, guidance, and work you can show.</h2><p>Our internship program gives students room to learn by doing. Explore a role, work through practical tasks and real-time project briefs, and develop the confidence to explain your decisions.</p><a className="button button-dark" href="/internships#internship-application">Apply Now <ArrowRight size={16} /></a></div><div className="about-service-grid"><article><Laptop /><h3>Hands-on experience</h3><p>Build practical skills through guided work across frontend, design, Python, content, security, and full stack roles.</p></article><article><Compass /><h3>Technical direction</h3><p>Get guidance as you plan, build, review, and improve your work. Students from varied academic backgrounds are welcome.</p></article><article><BookOpen /><h3>Career materials</h3><p>Develop portfolio examples and receive support in presenting your experience on a resume and LinkedIn profile.</p></article><article><Award /><h3>Completion certificate</h3><p>Document the experience and skills developed during the internship program.</p></article></div></section>
+    <section className="about-hero"><div className="container"><span className="eyebrow">About Innovix Projects</span><h1>Experience that helps you<br /><em>move forward.</em></h1><p>{homepage.aboutSummary}</p><div className="about-hero-actions"><a className="button button-dark" href="/internships#internship-application">Apply for an Internship <ArrowRight size={16} /></a><Link className="button button-outline" to="/projects">Explore Projects <ArrowRight size={16} /></Link></div></div></section>
+    <section className="section container about-service"><div className="about-service-heading"><span className="eyebrow">01 / Internships first</span><h2>Practice, guidance, and work you can show.</h2><p>Our internship program gives students room to learn by doing. Explore a role, work through practical tasks and real-time project briefs, and develop the confidence to explain your decisions.</p><a className="button button-dark" href="/internships#internship-application">Apply Now <ArrowRight size={16} /></a></div><div className="about-service-grid">{services.map((item, index) => <article key={item._id || index}><Laptop /><h3>{item.title}</h3><p>{item.description}</p></article>)}</div></section>
     <section className="section about-tracks"><div className="container"><SectionHeading eyebrow="Explore opportunities" title="Multiple ways to put learning into practice." description="Choose a track that fits your interests, then use the existing internship application to tell us about yourself." /><div className="about-track-list">{internshipRoles.map((role) => <span key={role}>{role}</span>)}</div><p className="about-track-note">The program connects practical tasks with industry-oriented ways of working, helping you build experience and career-focused skills through practice.</p></div></section>
     <section className="section container about-service about-project-service"><div className="about-service-heading"><span className="eyebrow">02 / Project development</span><h2>Understand what you build.</h2><p>We support academic and technical projects with planning, development, step-by-step explanation, and guidance for documentation, output, PPT presentations, and viva preparation.</p><p>Students can choose an existing project or bring a custom idea. Support is focused on helping you complete and explain your work through final submission.</p><div className="about-service-actions"><Link className="button button-dark" to="/projects">Explore Projects <ArrowRight size={16} /></Link><Link className="button button-outline" to="/build-your-project">Build Your Project <ArrowRight size={16} /></Link></div></div><div className="about-project-panel"><Sparkles size={26} /><span className="eyebrow">Projects starting from</span><strong>₹2,999</strong><p>Basic ₹2,999 · Intermediate ₹3,999 · Professional ₹4,999</p><div><FileText size={16} /> Documentation and presentation guidance</div><div><Rocket size={16} /> Custom project support when you need it</div></div></section>
     <PricingSection compact />
