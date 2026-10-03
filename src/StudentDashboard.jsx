@@ -30,7 +30,7 @@ export function StudentDashboard({ internshipOnly = false }) {
     {state.data && <>
       <div className="student-status"><b>Internship Status: {state.data.internshipStatus}</b><p>{state.data.internshipStatusNote}</p><a className="text-link" href="/internships#internship-application">View internship application <ArrowRight size={14} /></a></div>
       <div className="student-resource-grid">
-        <article><Video size={23} /><h2>{state.data.liveClass?.title || track?.classTitle || 'Live Class'}</h2>{state.data.liveClass?.date && <p>{state.data.liveClass.date} {state.data.liveClass.startTime}</p>}{state.data.liveClass?.description && <p>{state.data.liveClass.description}</p>}<p>Join your {student.internshipDomain} learning session.</p>{liveClassUrl ? <a className="button button-dark" href={liveClassUrl} target="_blank" rel="noopener noreferrer">Join Live Class</a> : <p>Your domain’s live-class link will appear when available.</p>}</article>
+        <StudentLiveClass domain={student.internshipDomain} liveClass={state.data.liveClass} liveClassUrl={liveClassUrl} fallbackTitle={track?.classTitle} />
         <article><BookOpen size={23} /><h2>Recorded Classes</h2><p>Review lessons at your own pace.</p>{state.data.recordedClassesAvailable ? <Link className="button button-outline" to="/student/recorded-classes">View Recorded Classes</Link> : <p>Recorded classes are currently unavailable for your domain.</p>}</article>
         {settings.newsEnabled && settings.techNewsEnabled && <article><BookOpen size={23} /><h2>Daily Tech News</h2><p>Explore technology updates and career insights curated for interns.</p><Link className="button button-outline" to="/tech-news">Read Daily Tech News</Link></article>}
         <article><BookOpen size={23} /><h2>Learning Progress</h2><p>Track your batch, assignments, completed learning and certificate requirements below.</p><a className="text-link" href="#learning-progress">View Progress</a></article>
@@ -38,6 +38,13 @@ export function StudentDashboard({ internshipOnly = false }) {
       <StudentLearningProgress /><TodayTechUpdate />
     </>}
   </section>
+}
+
+export function StudentLiveClass({ domain, liveClass, liveClassUrl, fallbackTitle = 'Live Class' }) {
+  if (!liveClass) return null
+  return <article><Video size={23} /><h2>{liveClass.title || fallbackTitle}</h2>{liveClass.date && <p>{liveClass.date} {liveClass.startTime}</p>}{liveClass.description && <p>{liveClass.description}</p>}<p>Join your {domain} learning session.</p>{liveClassUrl
+    ? <a className="button button-dark" href={liveClassUrl} target="_blank" rel="noopener noreferrer">Join Live Class</a>
+    : <><button className="button button-dark" disabled>Join Live Class</button><p>Live class link will be updated soon.</p></>}</article>
 }
 
 export function StudentRecordedClasses() {

@@ -4,7 +4,7 @@ const key = value => typeof value === 'string' ? value.trim().toLowerCase().repl
 const domains = [...new Set([...internshipRoles, ...liveClasses.map(item => item.name)])]
 const names = new Map(domains.map(name => [key(name), name]))
 for (const name of domains) names.set(key(name.replace(/[^a-z0-9]+/gi, '-')), name)
-for (const [alias, name] of Object.entries({ 'Frontend Development': 'Frontend Developer', 'Python Development': 'Python Developer', 'UI/UX Design': 'UI/UX Designer' })) names.set(key(alias), name)
+for (const [alias, name] of Object.entries({ 'Data Analyst': 'Data Analytics', 'Frontend Development': 'Frontend Developer', 'Python Development': 'Python Developer', 'UI/UX Design': 'UI/UX Designer' })) names.set(key(alias), name)
 
 export const normalizeInternshipDomain = value => names.get(key(value)) || ''
 export const sameInternshipDomain = (left, right) => Boolean(normalizeInternshipDomain(left)) && normalizeInternshipDomain(left) === normalizeInternshipDomain(right)
