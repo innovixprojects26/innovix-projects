@@ -252,22 +252,32 @@ function RequestedInternships() {
       const available = eligibleBatches(item, batches)
       const batchId = available.some(batch => String(batch._id) === selectedBatches[item._id]) ? selectedBatches[item._id] : ''
       return <article className={`admin-record ${canDecide ? 'unread' : ''}`} key={item._id}>
-        <div className="admin-record-head"><div><span className="eyebrow">{canDecide ? 'NEW REQUEST' : 'INTERNSHIP APPLICATION'}</span><h2>{item.name}</h2><time>Submitted {dateText(item.createdAt)}</time></div><span className={`status ${item.status === 'Approved' || item.status === 'Joined' ? 'live' : ''}`}>{item.status}</span></div>
+        <div className="admin-record-head"><div><span className="eyebrow">{canDecide ? 'NEW REQUEST' : 'INTERNSHIP APPLICATION'}</span><h2>{item.name}</h2><time>Requested Date: {dateText(item.createdAt)}</time></div><span className={`status ${item.status === 'Approved' || item.status === 'Joined' ? 'live' : ''}`}>{item.status}</span></div>
+        <h3>Student Details</h3>
         <dl className="admin-details">
           <div><dt>Email</dt><dd>{item.email || '—'}</dd></div>
           <div><dt>Phone</dt><dd>{phoneLabel(item)}</dd></div>
           <div><dt>College</dt><dd>{item.college || '—'}</dd></div>
           <div><dt>Course</dt><dd>{item.degreeCourse || '—'}</dd></div>
           <div><dt>Year</dt><dd>{item.studyYear || '—'}</dd></div>
-          <div><dt>Internship Domain</dt><dd>{item.domain || '—'}</dd></div>
+          <div><dt>Requested Internship</dt><dd>{item.domain || '—'}</dd></div>
+          <div><dt>Current Status</dt><dd>{item.status}</dd></div>
         </dl>
-        {canDecide && <div className="admin-card-actions">
-          <label>Enrollment batch <select aria-label={`Enrollment batch for ${item.name}`} value={batchId} onChange={event => setSelectedBatches(previous => ({ ...previous, [item._id]: event.target.value }))}><option value="">Choose eligible batch</option>{available.map(batch => <option key={batch._id} value={batch._id}>{batch.name} · {batch.status} · {batch.enrollmentCount}/{batch.maxStudents}</option>)}</select></label>
-          <button className="admin-button dark" disabled={updating === item._id || !batchId} onClick={() => decide(item, 'Approved')}>{updating === item._id ? 'Processing...' : 'Approve'}</button>
-          <button className="admin-button light" disabled={updating === item._id} onClick={() => decide(item, 'Rejected')}>Reject</button>
-        </div>}
-        {canDecide && !batchesLoading && !batchError && !available.length && <p role="status">No eligible batch exists for this internship. <Link className="text-link" to="/admin/batches">Create / Manage Batch</Link></p>}
-        {item.status === 'Approved' && <p>Approved and assigned to a batch. Student learning access is enabled.</p>}
+        {canDecide && <section className="internship-approval" aria-label={`Decision controls for ${item.name}'s internship request`}>
+          <h3>Review this internship request</h3>
+          <label>Choose Eligible Batch
+            <select aria-label={`Eligible batch for ${item.name}`} value={batchId} onChange={event => setSelectedBatches(previous => ({ ...previous, [item._id]: event.target.value }))}>
+              <option value="">Choose an eligible batch</option>
+              {available.map(batch => <option key={batch._id} value={batch._id}>{batch.name} · {batch.code} · {batch.enrollmentCount}/{batch.maxStudents}</option>)}
+            </select>
+          </label>
+          {!batchesLoading && !batchError && !available.length && <p role="status">No eligible batch available. <Link className="text-link" to="/admin/batches">Create / Manage Batch</Link></p>}
+          <div className="internship-approval-actions">
+            <button className="admin-button dark" disabled={updating === item._id || !batchId} onClick={() => decide(item, 'Approved')}>{updating === item._id ? 'Processing...' : 'Approve'}</button>
+            <button className="admin-button light" disabled={updating === item._id} onClick={() => decide(item, 'Rejected')}>Reject</button>
+          </div>
+        </section>}
+        {item.status === 'Approved' && <p className="internship-assignment" role="status"><b>Status: Approved</b><br />Assigned Batch: {item.assignedBatch ? `${item.assignedBatch.name}${item.assignedBatch.code ? ` (${item.assignedBatch.code})` : ''}` : 'Enrollment record unavailable'}.</p>}
       </article>
     })}</div> : <Empty>No internship applications yet.</Empty>)}
   </AdminPage>

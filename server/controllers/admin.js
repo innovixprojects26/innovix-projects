@@ -78,7 +78,21 @@ export async function updateProject(req, res) {
   catch (error) { if (error.code === 11000) return fail(res, 'Project slug already exists', 409); throw error }
 }
 export async function deleteProject(req, res) { const item = await Project.findByIdAndDelete(req.params.id); return item ? respond(res, { deleted: true }) : fail(res, 'Project not found', 404) }
-export async function listCollection(req, res) { const Model = models[req.params.collection]; if (!Model) return fail(res, 'Unknown collection', 404); const query = req.query.status ? { status: req.query.status } : {}; const records = Model.find(query).sort({ createdAt: -1 }); if (req.params.collection === 'enquiries') records.populate('project', 'price'); return respond(res, await records.lean()) }
+export async function listCollection(req, res) {
+  const Model = models[req.params.collection]
+  if (!Model) return fail(res, 'Unknown collection', 404)
+  const query = req.query.status ? { status: req.query.status } : {}
+  const records = Model.find(query).sort({ createdAt: -1 })
+  if (req.params.collection === 'enquiries') records.populate('project', 'price')
+  const items = await records.lean()
+  if (req.params.collection !== 'internships' || !items.length) return respond(res, items)
+  const enrollments = await BatchEnrollment.find({ application: { $in: items.map(item => item._id) }, status: { $in: ['Enrolled', 'Completed'] } }).populate('batch', 'name code').select('application batch').lean()
+  const assignedBatches = new Map(enrollments.map(item => [String(item.application), item.batch]))
+  return respond(res, items.map(item => {
+    const batch = assignedBatches.get(String(item._id))
+    return { ...item, assignedBatch: batch ? { _id: batch._id, name: batch.name, code: batch.code } : null }
+  }))
+}
 export async function updateStatus(req, res) { const Model = models[req.params.collection]; const valid = allowedStatuses[req.params.collection]; if (!Model || !valid?.includes(req.body.status)) return fail(res, 'Invalid collection or status'); if (req.params.collection === 'enquiries') return updateLead(req, res); if (req.params.collection === 'internships' && ['Approved', 'Rejected'].includes(req.body.status)) return fail(res, 'Use the internship decision action so access is handled safely.'); const item = await Model.findByIdAndUpdate(req.params.id, { status: req.body.status }, { returnDocument: 'after', runValidators: true }); return item ? respond(res, item) : fail(res, 'Record not found', 404) }
 export async function listMessages(req, res) { return respond(res, await ContactMessage.find().sort({ read: 1, createdAt: -1 }).lean()) }
 export async function updateMessageRead(req, res) { const item = await ContactMessage.findByIdAndUpdate(req.params.id, { read: Boolean(req.body.read) }, { returnDocument: 'after' }); return item ? respond(res, item) : fail(res, 'Message not found', 404) }
