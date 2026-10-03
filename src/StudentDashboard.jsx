@@ -1,4 +1,5 @@
 import { StudentLearningProgress } from './StudentLearning'
+import { sameInternshipDomain } from '../shared/internship-domain'
 import { useSite } from './site-context'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -11,7 +12,7 @@ import { TodayTechUpdate } from './TechNews'
 export function StudentDashboard({ internshipOnly = false }) {
   const { settings, domains } = useSite()
   const { student } = useStudentSession()
-  const track = domains.find(item => item.name === student.internshipDomain)
+  const track = domains.find(item => sameInternshipDomain(item.name, student.internshipDomain))
   const [state, setState] = useState({ data: null, error: '' })
   const [attempt, setAttempt] = useState(0)
   const liveClassUrl = state.data?.liveClassUrl

@@ -1,4 +1,5 @@
 import { learningSettings } from '../../shared/learning.js'
+import { normalizeInternshipDomain, sameInternshipDomain } from '../../shared/internship-domain.js'
 import mongoose from 'mongoose'
 import { contactConfig, liveClasses, internshipRoles } from '../../src/data.js'
 
@@ -44,10 +45,9 @@ export async function ensureDomains() {
   await Promise.all(initialClassSettings)
 }
 export async function getDomain(name) {
-  if (typeof name !== 'string') return null
-  const aliases = { 'Frontend Development': 'Frontend Developer', 'Python Development': 'Python Developer', 'UI/UX Design': 'UI/UX Designer' }
-  name = aliases[name] || name
-  const saved = await InternshipDomain.findOne({ name }).lean()
+  name = normalizeInternshipDomain(name)
+  if (!name) return null
+  const saved = await InternshipDomain.findOne({ name }).lean() || (await InternshipDomain.find().lean()).find(item => sameInternshipDomain(item.name, name))
   if (saved) return saved
   if (![...internshipRoles, ...liveClasses.map(item => item.name)].includes(name)) return null
   return { name, active: true, applicationsOpen: true, liveClassEnabled: true, recordedClassesEnabled: name === 'Content Creation', classActive: true, meetingUrl: liveClasses.find(item => item.name === name)?.meetLink || '' }

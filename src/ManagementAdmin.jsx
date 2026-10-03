@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { validLiveClassUrl } from '../shared/internship-domain'
 import { adminFetch } from './api'
 
 const label = key => key.replace(/([A-Z])/g, ' $1').replace(/^./, value => value.toUpperCase())
@@ -33,7 +35,7 @@ export function InternshipAdmin({ live = false }) {
 function DomainForm({ item, live, state }) {
   const [form, setForm] = useState(item)
   const keys = live ? ['classTitle', 'meetingUrl', 'date', 'startTime', 'description', 'classActive'] : ['active', 'applicationsOpen', 'liveClassEnabled', 'recordedClassesEnabled']
-  return <form className="admin-editor" onSubmit={event => { event.preventDefault(); state.save(`/internship-domains/${item._id}`, Object.fromEntries(keys.map(key => [key, form[key] ?? ''])), 'PATCH') }}><h2>{item.name}</h2>{!live && !['Content Creation', 'Cyber Security'].includes(item.name) && <p>Recorded-video storage is currently available for Content Creation and Cyber Security.</p>}<div className="admin-form-grid">{keys.map(key => typeof form[key] === 'boolean' ? <Switch key={key} title={label(key)} checked={form[key]} onChange={value => setForm({ ...form, [key]: value })} /> : <label key={key}>{label(key)}<input type={key === 'meetingUrl' ? 'url' : key === 'date' ? 'date' : key === 'startTime' ? 'time' : 'text'} value={form[key] || ''} maxLength={2000} onChange={event => setForm({ ...form, [key]: event.target.value })} /></label>)}</div><button className="admin-button dark" disabled={state.busy}>Save {live ? 'live class' : 'internship'}</button></form>
+  return <form className="admin-editor" onSubmit={event => { event.preventDefault(); state.save(`/internship-domains/${item._id}`, Object.fromEntries(keys.map(key => [key, form[key] ?? ''])), 'PATCH') }}><h2>{item.name}</h2>{form.liveClassEnabled && !validLiveClassUrl(form.meetingUrl) && <p role="status">Live Classes is ON. Configure a valid Live Class URL to show Join Live Class.{!live && <> <Link className="text-link" to="/admin/live-classes">Configure Live Class URL</Link></>}</p>}{!live && !['Content Creation', 'Cyber Security'].includes(item.name) && <p>Recorded-video storage is currently available for Content Creation and Cyber Security.</p>}<div className="admin-form-grid">{keys.map(key => typeof form[key] === 'boolean' ? <Switch key={key} title={label(key)} checked={form[key]} onChange={value => setForm({ ...form, [key]: value })} /> : <label key={key}>{label(key)}<input type={key === 'meetingUrl' ? 'url' : key === 'date' ? 'date' : key === 'startTime' ? 'time' : 'text'} value={form[key] || ''} maxLength={2000} onChange={event => setForm({ ...form, [key]: event.target.value })} /></label>)}</div><button className="admin-button dark" disabled={state.busy}>Save {live ? 'live class' : 'internship'}</button></form>
 }
 
 export function StudentsAdmin() {

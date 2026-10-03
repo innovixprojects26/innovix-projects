@@ -3,6 +3,7 @@ import { updateLead } from './leads.js'
 import { Student } from '../models/student.js'
 import { InternshipBatch, BatchEnrollment } from '../models/learning.js'
 import mongoose from 'mongoose'
+import { normalizeInternshipDomain, sameInternshipDomain, isEligibleBatch } from '../../shared/internship-domain.js'
 import { getDomain } from '../models/management.js'
 import { TechNews } from '../models/tech-news.js'
 import { ContentVideo } from '../models/content-video.js'
@@ -116,9 +117,9 @@ export async function decideInternshipApplication(req, res) {
       if (!current) throw Object.assign(new Error('Internship application not found.'), { status: 404 })
       linkedStudent = await Student.findOne({ email: current.email.trim().toLowerCase(), accountStatus: 'active' }).session(session)
       if (!linkedStudent) throw Object.assign(new Error('No active Student account matches this applicant email. Ask the applicant to register with this email before approving.'), { status: 409 })
-      if (linkedStudent.internshipDomain !== requestedDomain.name) {
+      if (!sameInternshipDomain(linkedStudent.internshipDomain, requestedDomain.name)) {
         if (await BatchEnrollment.exists({ student: linkedStudent._id, status: 'Enrolled' }).session(session)) throw Object.assign(new Error('The Student already has an active enrollment in a different internship domain.'), { status: 409 })
-        linkedStudent.internshipDomain = requestedDomain.name
+        linkedStudent.internshipDomain = normalizeInternshipDomain(requestedDomain.name)
         await linkedStudent.save({ session })
       }
       const existing = await BatchEnrollment.findOne({ application: current._id, status: { $in: ['Enrolled', 'Completed'] } }).session(session)
@@ -130,8 +131,8 @@ export async function decideInternshipApplication(req, res) {
         return
       }
       if (!['Pending', 'New', 'Reviewed', 'Reviewing', 'Shortlisted', 'Interview Scheduled', 'Selected'].includes(current.status)) throw Object.assign(new Error('This application is no longer pending approval.'), { status: 409 })
-      const batch = await InternshipBatch.findOne({ _id: batchId, domain: requestedDomain.name, enabled: true, status: { $in: ['Upcoming', 'Active'] } }).session(session)
-      if (!batch) throw Object.assign(new Error('Choose an enabled Upcoming or Active batch for the requested internship domain.'), { status: 409 })
+      const batch = await InternshipBatch.findById(batchId).session(session)
+      if (!batch || !isEligibleBatch(current, batch)) throw Object.assign(new Error('Choose an enabled Upcoming or Active batch with space for the requested internship domain.'), { status: 409 })
       const reserved = await InternshipBatch.updateOne({ _id: batch._id, $expr: { $lt: ['$enrollmentCount', '$maxStudents'] } }, { $inc: { enrollmentCount: 1 } }, { session })
       if (!reserved.modifiedCount) throw Object.assign(new Error('The selected batch is full.'), { status: 409 })
       const existingEnrollment = await BatchEnrollment.findOne({ student: linkedStudent._id, status: 'Enrolled' }).session(session)
