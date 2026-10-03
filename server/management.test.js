@@ -12,6 +12,7 @@ import { contentVideoPublicRoutes } from './routes/content-videos.js'
 import { Admin, Project, ContactMessage, Enquiry, InternshipApplication, CustomProject } from './models/index.js'
 import { Student, StudentSession } from './models/student.js'
 import { WebsiteConfig, InternshipDomain, AdminActivity, ensureDomains } from './models/management.js'
+import { InternshipBatch, BatchEnrollment, initializeLearningModels } from './models/learning.js'
 import { liveClasses } from '../src/data.js'
 
 test('central admin management preserves data and enforces public availability and suspension', async () => {
@@ -19,7 +20,7 @@ test('central admin management preserves data and enforces public availability a
   let server
   try {
     await mongoose.connect(env.mongoUri, { dbName, serverSelectionTimeoutMS: 15000 })
-    await Promise.all([Admin.init(), Student.init(), StudentSession.init(), Project.init()])
+    await Promise.all([Admin.init(), Student.init(), StudentSession.init(), Project.init(), initializeLearningModels()])
     const untouchedDomain = await InternshipDomain.create({ name: 'Data Analytics', active: false, applicationsOpen: false, liveClassEnabled: false, recordedClassesEnabled: true, meetingUrl: 'https://example.test/unchanged' })
     const contentLiveSettings = { name: 'Content Creation', liveClassEnabled: true, classActive: true, recordedClassesEnabled: true, classTitle: 'Existing Content session', meetingUrl: liveClasses.find(item => item.name === 'Content Creation').meetLink, date: '2026-10-04', startTime: '10:30', description: 'Preserve the configured session.' }
     await InternshipDomain.create(contentLiveSettings)
@@ -40,7 +41,7 @@ test('central admin management preserves data and enforces public availability a
       const response = await fetch(base + path, { method, headers: { 'Content-Type': 'application/json', Origin: new URL(env.clientUrl).origin, ...(token && path.startsWith('/admin') ? { Authorization: `Bearer ${token}` } : {}), ...extra }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) })
       return { status: response.status, cookie: response.headers.get('set-cookie'), ...await response.json() }
     }
-    for (const path of ['/admin/configuration', '/admin/students', '/admin/internship-domains', '/admin/internships', '/admin/announcements', '/admin/activity']) assert.equal((await request(path)).status, 401)
+    for (const path of ['/admin/configuration', '/admin/students', '/admin/internship-domains', '/admin/internships', '/admin/internships/000000000000000000000001/decision', '/admin/announcements', '/admin/activity']) assert.equal((await request(path)).status, 401)
     assert.equal((await request('/admin/login', 'POST', { email: 'admin@example.test', password: 'wrong' })).status, 401)
     token = (await request('/admin/login', 'POST', { email: 'admin@example.test', password })).data.token
     assert.ok(token)
@@ -169,7 +170,32 @@ test('central admin management preserves data and enforces public availability a
     const login = await request('/student/login', 'POST', { email: registration.email, password, rememberMe: true })
     assert.equal(login.status, 200)
     const cookie = login.cookie.split(';')[0]
+    assert.equal((await request('/student/dashboard', 'GET', undefined, { Cookie: cookie })).data.liveClassUrl, null, 'Registration alone does not grant internship access')
+    assert.equal((await request('/content-creation/videos', 'GET', undefined, { Cookie: cookie })).status, 403)
+    const batch = await InternshipBatch.create({ name: 'Content Creation Test Batch', domain: track.name, code: 'CC-APPROVAL-TEST', startDate: new Date(Date.now() + 86400000), endDate: new Date(Date.now() + 30 * 86400000), mentor: 'Test Mentor', maxStudents: 5, status: 'Active', enabled: true })
+    const matchedApplication = await request('/internships/apply', 'POST', { name: 'Learner', email: registration.email, phoneCountry: 'IN', phone: registration.phone, degreeCourse: registration.course, department: 'IT', college: registration.college, studyYear: registration.yearOfStudy, domain: track.name, skills: 'Writing', experienceLevel: 'Beginner', message: 'Safe approval test' })
+    assert.equal(matchedApplication.status, 201)
+    assert.equal(matchedApplication.data.status, 'Pending')
+    const noAccountApproval = await request(`/admin/internships/${newApplication.data._id}/decision`, 'PATCH', { decision: 'Approved', batchId: String(batch._id) })
+    assert.equal(noAccountApproval.status, 409)
+    assert.match(noAccountApproval.message, /register with this email/i)
+    assert.equal((await InternshipApplication.findById(newApplication.data._id)).status, 'Pending')
+    const rejectedApplication = await request('/internships/apply', 'POST', { name: 'Rejected Applicant', email: 'rejected@example.test', phoneCountry: 'IN', phone: '9876543211', degreeCourse: 'BSc', department: 'IT', college: 'College', studyYear: 'Final Year', domain: track.name, skills: 'Writing', experienceLevel: 'Beginner', message: 'Safe rejection test' })
+    assert.equal(rejectedApplication.status, 201)
+    const rejected = await request(`/admin/internships/${rejectedApplication.data._id}/decision`, 'PATCH', { decision: 'Rejected' })
+    assert.equal(rejected.status, 200)
+    assert.equal(rejected.data.application.status, 'Rejected')
+    assert.equal(await BatchEnrollment.countDocuments({ application: rejectedApplication.data._id }), 0)
+    const approved = await request(`/admin/internships/${matchedApplication.data._id}/decision`, 'PATCH', { decision: 'Approved', batchId: String(batch._id) })
+    assert.equal(approved.status, 200, JSON.stringify(approved))
+    assert.equal(approved.data.application.status, 'Approved')
+    assert.equal(await BatchEnrollment.countDocuments({ application: matchedApplication.data._id, status: 'Enrolled' }), 1)
+    assert.equal((await InternshipBatch.findById(batch._id)).enrollmentCount, 1)
     assert.equal((await request('/student/dashboard', 'GET', undefined, { Cookie: cookie })).data.liveClassUrl, 'https://example.test/meeting')
+    await request(`/admin/internship-domains/${track._id}`, 'PATCH', { recordedClassesEnabled: true })
+    assert.equal((await request('/content-creation/videos', 'GET', undefined, { Cookie: cookie })).status, 200)
+    assert.equal((await request(`/admin/internships/${matchedApplication.data._id}/decision`, 'PATCH', { decision: 'Approved', batchId: String(batch._id) })).status, 200)
+    assert.equal(await BatchEnrollment.countDocuments({ application: matchedApplication.data._id, status: 'Enrolled' }), 1, 'Repeated approval does not duplicate enrollment')
     await request(`/admin/internship-domains/${track._id}`, 'PATCH', { classActive: false })
     assert.equal((await request('/student/dashboard', 'GET', undefined, { Cookie: cookie })).data.liveClassUrl, 'https://example.test/meeting')
     assert.equal((await request('/configuration')).data.domains.find(item => item.name === track.name).meetingUrl, 'https://example.test/meeting')
@@ -177,6 +203,8 @@ test('central admin management preserves data and enforces public availability a
     await request(`/admin/internship-domains/${track._id}`, 'PATCH', { liveClassEnabled: false, recordedClassesEnabled: false })
     assert.equal((await request('/student/dashboard', 'GET', undefined, { Cookie: cookie })).data.liveClassUrl, null)
     assert.equal((await request('/content-creation/videos', 'GET', undefined, { Cookie: cookie })).status, 403)
+    await request(`/admin/internship-domains/${track._id}`, 'PATCH', { liveClassEnabled: true, recordedClassesEnabled: true })
+    assert.equal((await request('/student/dashboard', 'GET', undefined, { Cookie: cookie })).data.liveClassUrl, 'https://example.test/meeting')
     await request(`/admin/internship-domains/${track._id}`, 'PATCH', { active: false })
     assert.ok(!(await request('/configuration')).data.domains.some(item => item.name === track.name))
     const students = await request('/admin/students?search=Learner&status=active&domain=Content%20Creation')
@@ -213,6 +241,9 @@ test('central admin management preserves data and enforces public availability a
     assert.equal((await request('/admin/dashboard')).data.totalStudents, 1)
     const cyberRegistration = { ...registration, email: 'cyber-student@example.test', phone: '9876543211', internshipDomain: 'Cyber Security' }
     assert.equal((await request('/student/register', 'POST', cyberRegistration)).status, 201)
+    const cyberStudent = await Student.findOne({ email: cyberRegistration.email })
+    const cyberBatch = await InternshipBatch.create({ name: 'Cyber Security Test Batch', domain: 'Cyber Security', code: 'CS-APPROVAL-TEST', startDate: new Date(Date.now() + 86400000), endDate: new Date(Date.now() + 30 * 86400000), mentor: 'Test Mentor', maxStudents: 5, status: 'Active', enabled: true })
+    await BatchEnrollment.create({ student: cyberStudent._id, batch: cyberBatch._id })
     const cyberLogin = await request('/student/login', 'POST', { email: cyberRegistration.email, password, rememberMe: true })
     assert.equal(cyberLogin.status, 200)
     const cyberCookie = cyberLogin.cookie.split(';')[0]
@@ -226,7 +257,7 @@ test('central admin management preserves data and enforces public availability a
     assert.equal((await request('/admin/profile')).data.email, 'admin@example.test')
     assert.ok(await AdminActivity.countDocuments() > 0)
     assert.ok(!JSON.stringify((await request('/admin/activity')).data).includes(password))
-    assert.equal(await InternshipApplication.countDocuments(), 2)
+    assert.equal(await InternshipApplication.countDocuments(), 4)
     assert.equal(await InternshipDomain.countDocuments(), liveClasses.length)
   } finally {
     if (server) await new Promise(resolve => server.close(resolve))

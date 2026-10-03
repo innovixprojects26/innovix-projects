@@ -21,8 +21,10 @@ test('Content Creation video upload, privacy, playback ranges, ordering and dele
     const { ContentVideo } = await import('./models/content-video.js')
     const { storagePath, matchesSignature, receiveMedia } = await import('./storage/content-videos.js')
     const { Student, StudentSession } = await import('./models/student.js')
+    const { InternshipBatch, BatchEnrollment, initializeLearningModels } = await import('./models/learning.js')
     const { hashToken, studentCookieName } = await import('./middleware/student-auth.js')
     const { InternshipDomain, ensureDomains } = await import('./models/management.js')
+    await initializeLearningModels()
     await ensureDomains()
     await InternshipDomain.updateOne({ name: 'Content Creation' }, { $set: { recordedClassesEnabled: true } })
     const student = await Student.create({ fullName: 'Video Test Student', email: 'video-test@example.invalid', phone: '+919876543210', college: 'Test College', course: 'Media', yearOfStudy: '1st Year', internshipDomain: 'Content Creation', passwordHash: 'test-only-not-a-login-hash' })
@@ -33,6 +35,11 @@ test('Content Creation video upload, privacy, playback ranges, ordering and dele
     const cyberToken = randomUUID().replaceAll('-', '') + randomUUID().replaceAll('-', '')
     await StudentSession.create({ student: cyberStudent._id, authVersion: 0, tokenHash: hashToken(cyberToken), expiresAt: new Date(Date.now() + 600000) })
     const cyberCookie = `${studentCookieName()}=${cyberToken}`
+    const day = 86400000
+    for (const [domain, learner, code] of [['Content Creation', student, 'CV-CC-TEST'], ['Cyber Security', cyberStudent, 'CV-CS-TEST']]) {
+      const batch = await InternshipBatch.create({ name: `${domain} Test Batch`, domain, code, startDate: new Date(Date.now() - day), endDate: new Date(Date.now() + 30 * day), mentor: 'Test Mentor', maxStudents: 5, status: 'Active', enabled: true })
+      await BatchEnrollment.create({ student: learner._id, batch: batch._id })
+    }
     const app = express()
     app.use(express.json())
     app.use('/admin/content-creation/videos', contentVideoAdminRoutes)

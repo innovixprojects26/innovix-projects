@@ -60,7 +60,7 @@ function AdminLayout() {
   const groups = [
     ['Overview', [['/admin', 'Dashboard', BarChart3]]],
     ['Website Management', [['/admin/projects', 'Projects', FolderKanban], ['/admin/internship-domains', 'Internships', Users], ['/admin/live-classes', 'Live Classes', FileText], ['/admin/content-creation/videos', 'Recorded Classes', FileText], ['/admin/tech-news', 'Daily Tech News', FileText], ['/admin/discover', 'Learn & Discover', FileText], ['/admin/testimonials', 'Testimonials', Shield]]],
-    ['Student Management', [['/admin/students', 'Students', Users], ['/admin/applications', 'STUDENT APPLICATIONS', Users]]],
+    ['Student Management', [['/admin/students', 'Students', Users], ['/admin/applications', 'Internship Applications', Users]]],
     ['Internship Learning', [['/admin/batches', 'Batches', Users], ['/admin/tasks', 'Tasks & Assignments', FileText], ['/admin/submissions', 'Submissions', FileText], ['/admin/certificates', 'Certificates', Shield]]],
     ['Engagement', [['/admin/notifications', 'Notifications', MessageSquare], ['/admin/gamification', 'Gamification', BarChart3]]],
     ['Customer Management', [['/admin/enquiries', 'Project Enquiries / Leads', MessageSquare], ['/admin/custom-projects', 'Custom Project Requests', FileText], ['/admin/messages', 'Contact Messages', MessageSquare]]],
@@ -72,7 +72,7 @@ function AdminLayout() {
   return <div className="admin-shell">
     {open && <button className="admin-backdrop" aria-label="Close navigation" onClick={() => setOpen(false)} />}
     <aside className={open ? 'admin-sidebar open' : 'admin-sidebar'}><div className="admin-brand"><Logo /><button onClick={() => setOpen(false)} aria-label="Close menu"><X size={18} /></button></div><nav aria-label="Admin navigation">{groups.map(([group, links]) => <div key={group}><p className="admin-nav-group">{group}</p>{links.map(([href, label, Icon]) => <NavLink end to={href} onClick={() => setOpen(false)} key={href} className={({ isActive }) => isActive ? 'active' : ''}><Icon size={17} />{label}</NavLink>)}</div>)}</nav><button className="admin-logout" onClick={logout}><LogOut size={17} /> Log out</button></aside>
-    <div className="admin-main"><header className="admin-topbar"><button className="admin-menu" onClick={() => setOpen(true)} aria-label="Open navigation"><Menu /></button><span>Innovix control room</span><ThemeSelector /><Link to="/">View site <ArrowRight size={15} /></Link></header><Routes><Route path="/batches" element={<BatchAdmin />} /><Route path="/tasks" element={<TaskAdmin />} /><Route path="/submissions" element={<SubmissionsAdmin />} /><Route path="/certificates" element={<CertificatesAdmin />} /><Route path="/notifications" element={<NotificationsAdmin />} /><Route path="/gamification" element={<GamificationAdmin />} /><Route path="/discover" element={<DiscoverAdmin />} /><Route path="/website-settings" element={<ConfigurationAdmin section="settings" />} /><Route path="/homepage" element={<ConfigurationAdmin section="homepage" />} /><Route path="/services" element={<ConfigurationAdmin section="services" />} /><Route path="/internship-domains" element={<InternshipAdmin />} /><Route path="/live-classes" element={<InternshipAdmin live />} /><Route path="/students" element={<StudentsAdmin />} /><Route path="/announcements" element={<AnnouncementsAdmin />} /><Route path="/settings" element={<AdminSettings />} /><Route path="/content-creation/videos" element={<ContentVideoAdmin />} /><Route path="/tech-news" element={<TechNewsAdmin />} /><Route path="/" element={<Dashboard />} /><Route path="/projects" element={<AdminProjects />} /><Route path="/enquiries" element={<LeadsAdmin />} /><Route path="/custom-projects" element={<RequestsPage type="custom" />} /><Route path="/applications" element={<RequestsPage type="internships" />} /><Route path="/internships" element={<RequestsPage type="internships" />} /><Route path="/messages" element={<Messages />} /><Route path="/testimonials" element={<TestimonialsAdmin />} /><Route path="*" element={<Navigate to="/admin" replace />} /></Routes></div>
+    <div className="admin-main"><header className="admin-topbar"><button className="admin-menu" onClick={() => setOpen(true)} aria-label="Open navigation"><Menu /></button><span>Innovix control room</span><ThemeSelector /><Link to="/">View site <ArrowRight size={15} /></Link></header><Routes><Route path="/batches" element={<BatchAdmin />} /><Route path="/tasks" element={<TaskAdmin />} /><Route path="/submissions" element={<SubmissionsAdmin />} /><Route path="/certificates" element={<CertificatesAdmin />} /><Route path="/notifications" element={<NotificationsAdmin />} /><Route path="/gamification" element={<GamificationAdmin />} /><Route path="/discover" element={<DiscoverAdmin />} /><Route path="/website-settings" element={<ConfigurationAdmin section="settings" />} /><Route path="/homepage" element={<ConfigurationAdmin section="homepage" />} /><Route path="/services" element={<ConfigurationAdmin section="services" />} /><Route path="/internship-domains" element={<InternshipAdmin />} /><Route path="/live-classes" element={<InternshipAdmin live />} /><Route path="/students" element={<StudentsAdmin />} /><Route path="/announcements" element={<AnnouncementsAdmin />} /><Route path="/settings" element={<AdminSettings />} /><Route path="/content-creation/videos" element={<ContentVideoAdmin />} /><Route path="/tech-news" element={<TechNewsAdmin />} /><Route path="/" element={<Dashboard />} /><Route path="/projects" element={<AdminProjects />} /><Route path="/enquiries" element={<LeadsAdmin />} /><Route path="/custom-projects" element={<RequestsPage type="custom" />} /><Route path="/applications" element={<RequestedInternships />} /><Route path="/internships" element={<RequestedInternships />} /><Route path="/messages" element={<Messages />} /><Route path="/testimonials" element={<TestimonialsAdmin />} /><Route path="*" element={<Navigate to="/admin" replace />} /></Routes></div>
   </div>
 }
 
@@ -221,6 +221,58 @@ function RequestsPage({ type }) {
   {[['Portfolio', 'portfolioUrl'], ['GitHub', 'githubUrl'], ['LinkedIn', 'linkedinUrl']].map(([label, key]) => <div key={key}><dt>{label}</dt><dd>{safeExternalUrl(item[key]) ? <a href={safeExternalUrl(item[key])} target="_blank" rel="noopener noreferrer">Open {label}</a> : item[key] ? 'Invalid URL' : '—'}</dd></div>)}
   <div className="admin-wide"><dt>Motivation / message</dt><dd>{item.message || '—'}</dd></div>
 </>}</dl>{type === 'enquiries' ? <EnquiryContactActions record={item} /> : type === 'custom' ? <CustomContactActions record={item} /> : <InternshipContactActions record={item} />}</article>)}</div> : <Empty>No {config.title.toLowerCase()} yet. New submissions will appear here.</Empty>)}</AdminPage>
+}
+
+function RequestedInternships() {
+  const { loading, data, error, reload } = useAdminData('/internships')
+  const { data: batches, error: batchError } = useAdminData('/learning/batches')
+  const [selectedBatches, setSelectedBatches] = useState({})
+  const [actionError, setActionError] = useState('')
+  const [updating, setUpdating] = useState(null)
+  const rows = [...data].sort((a, b) => {
+    const pending = item => ['Pending', 'New', 'Reviewed', 'Reviewing', 'Shortlisted', 'Interview Scheduled', 'Selected'].includes(item.status)
+    return Number(pending(b)) - Number(pending(a)) || new Date(b.createdAt) - new Date(a.createdAt)
+  })
+  const decide = async (item, decision) => {
+    setUpdating(item._id)
+    setActionError('')
+    try {
+      await adminFetch(`/internships/${item._id}/decision`, { method: 'PATCH', body: JSON.stringify({ decision, ...(decision === 'Approved' ? { batchId: selectedBatches[item._id] || eligibleBatches(item, batches)[0]?._id } : {}) }) })
+      await reload()
+    } catch (requestError) { setActionError(requestError.message) }
+    finally { setUpdating(null) }
+  }
+  return <AdminPage title="Requested Internships" eyebrow="Student Management · Internship Applications">
+    <p>Review existing applications. Approving requires a matching Student account and an eligible batch in the requested domain.</p>
+    <LoadState loading={loading} error={error || batchError} retry={reload} />
+    {actionError && <div className="admin-error" role="alert">{actionError}</div>}
+    {!loading && !error && (rows.length ? <div className="admin-record-list">{rows.map(item => {
+      const canDecide = ['Pending', 'New', 'Reviewed', 'Reviewing', 'Shortlisted', 'Interview Scheduled', 'Selected'].includes(item.status)
+      const available = eligibleBatches(item, batches)
+      const batchId = selectedBatches[item._id] || (available.length === 1 ? String(available[0]._id) : '')
+      return <article className={`admin-record ${canDecide ? 'unread' : ''}`} key={item._id}>
+        <div className="admin-record-head"><div><span className="eyebrow">{canDecide ? 'NEW REQUEST' : 'INTERNSHIP APPLICATION'}</span><h2>{item.name}</h2><time>Submitted {dateText(item.createdAt)}</time></div><span className={`status ${item.status === 'Approved' || item.status === 'Joined' ? 'live' : ''}`}>{item.status}</span></div>
+        <dl className="admin-details">
+          <div><dt>Email</dt><dd>{item.email || '—'}</dd></div>
+          <div><dt>Phone</dt><dd>{phoneLabel(item)}</dd></div>
+          <div><dt>College</dt><dd>{item.college || '—'}</dd></div>
+          <div><dt>Course</dt><dd>{item.degreeCourse || '—'}</dd></div>
+          <div><dt>Year</dt><dd>{item.studyYear || '—'}</dd></div>
+          <div><dt>Internship Domain</dt><dd>{item.domain || '—'}</dd></div>
+        </dl>
+        {canDecide && <div className="admin-card-actions">
+          <label>Enrollment batch <select aria-label={`Enrollment batch for ${item.name}`} value={batchId} onChange={event => setSelectedBatches(previous => ({ ...previous, [item._id]: event.target.value }))}><option value="">Choose eligible batch</option>{available.map(batch => <option key={batch._id} value={batch._id}>{batch.name} · {batch.status} · {batch.enrollmentCount}/{batch.maxStudents}</option>)}</select></label>
+          <button className="admin-button dark" disabled={updating === item._id || !batchId} onClick={() => decide(item, 'Approved')}>{updating === item._id ? 'Processing...' : 'Approve'}</button>
+          <button className="admin-button light" disabled={updating === item._id} onClick={() => decide(item, 'Rejected')}>Reject</button>
+        </div>}
+        {item.status === 'Approved' && <p>Approved and assigned to a batch. Student learning access is enabled.</p>}
+      </article>
+    })}</div> : <Empty>No internship applications yet.</Empty>)}
+  </AdminPage>
+}
+
+function eligibleBatches(application, batches) {
+  return batches.filter(batch => batch.domain === application.domain && batch.enabled && ['Upcoming', 'Active'].includes(batch.status) && batch.enrollmentCount < batch.maxStudents)
 }
 
 function Messages() {

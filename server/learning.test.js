@@ -76,7 +76,7 @@ test('complete learning API workflows, isolated ownership, history, verification
     assert.equal((await admin('/batches', 'POST', batchBody)).status, 409)
     const second = (await admin('/batches', 'POST', { ...batchBody, name: 'Second batch', code: 'CC-SECOND' })).data
     assert.equal((await admin(`/batches/${batch._id}/students`, 'POST', { studentId: outsider.student.studentId })).status, 400)
-    const application = await InternshipApplication.create({ name: a.student.fullName, email: a.student.email, domain: 'Content Creation', status: 'Selected' })
+    const application = await InternshipApplication.create({ name: a.student.fullName, email: a.student.email, domain: 'Content Creation', status: 'Approved' })
     const assigned = await admin(`/batches/${batch._id}/students`, 'POST', { studentId: a.student.studentId, applicationId: String(application._id) })
     assert.equal(assigned.status, 201, JSON.stringify(assigned))
     assert.equal((await InternshipApplication.findById(application._id)).status, 'Joined')
@@ -107,7 +107,7 @@ test('complete learning API workflows, isolated ownership, history, verification
     assert.equal((await studentCall(a, '/tasks')).data.length, 2)
     assert.equal((await studentCall(b, '/tasks')).data.length, 0)
     const domain = await admin('/tasks', 'POST', { ...taskBody, title: 'Domain task', scope: 'Domain', batch: undefined, required: false })
-    assert.equal((await studentCall(b, '/tasks')).data.length, 1)
+    assert.equal((await studentCall(b, '/tasks')).data.length, 0, 'Students without an approved enrollment cannot access domain tasks')
     assert.equal((await studentCall(outsider, '/tasks')).data.length, 0)
 
     const upload = async (who, data, name, adminUpload = false) => {
@@ -203,7 +203,7 @@ test('complete learning API workflows, isolated ownership, history, verification
     // Historical completed batches remain and no production data is touched.
     assert.equal((await InternshipBatch.findById(batch._id)).name, batchBody.name)
     await admin(`/tasks/${domain.data._id}`, 'PATCH', { status: 'Closed' })
-    assert.equal((await studentCall(b, `/tasks/${domain.data._id}/submit`, 'POST', { text: 'Too late' })).status, 409)
+    assert.equal((await studentCall(b, `/tasks/${domain.data._id}/submit`, 'POST', { text: 'Too late' })).status, 404)
     const attempts = await Promise.all([a, b].map(who => admin(`/batches/${second._id}/students`, 'POST', { studentId: who.student.studentId })))
     assert.deepEqual(attempts.map(result => result.status).sort(), [201, 409], 'Concurrent requests cannot overbook the last seat')
     assert.equal((await InternshipBatch.findById(second._id)).enrollmentCount, 1)

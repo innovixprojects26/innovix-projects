@@ -58,7 +58,7 @@ export async function createInternship(req, res) {
     startDate = new Date(availabilityDate)
     if (typeof availabilityDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(availabilityDate) || Number.isNaN(startDate.getTime()) || startDate.toISOString().slice(0, 10) !== availabilityDate) return fail(res, 'Enter a valid preferred start date.')
   }
-  return respond(res, await InternshipApplication.create({ name: clean(name, 120), email: email.trim(), ...phone, degreeCourse: clean(degreeCourse, 160), department: clean(department, 160), college: clean(college, 180), studyYear: clean(studyYear, 80), domain: clean(domain, 160), skills: clean(skills, 2000), experienceLevel: clean(experienceLevel, 80), portfolioUrl: clean(portfolioUrl, 2000), githubUrl: clean(githubUrl, 2000), linkedinUrl: clean(linkedinUrl, 2000), message: clean(message, 4000), availabilityDate: startDate }), 201)
+  return respond(res, await InternshipApplication.create({ name: clean(name, 120), email: email.trim(), ...phone, degreeCourse: clean(degreeCourse, 160), department: clean(department, 160), college: clean(college, 180), studyYear: clean(studyYear, 80), domain: track.name, skills: clean(skills, 2000), experienceLevel: clean(experienceLevel, 80), portfolioUrl: clean(portfolioUrl, 2000), githubUrl: clean(githubUrl, 2000), linkedinUrl: clean(linkedinUrl, 2000), message: clean(message, 4000), availabilityDate: startDate }), 201)
 }
 export async function createContact(req, res) {
   if (!(await getConfig()).settings.contactEnabled) return fail(res, 'The contact form is currently unavailable.', 403)

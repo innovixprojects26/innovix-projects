@@ -66,8 +66,10 @@ export async function assignStudent(req, res) {
     let application
     if (req.body.applicationId) {
       if (!id(req.body.applicationId)) throw problem('Invalid application.')
-      application = await InternshipApplication.findOne({ _id: req.body.applicationId, email: student.email, domain: batch.domain, status: { $in: ['Selected', 'Joined'] } }).session(session)
+      application = await InternshipApplication.findOne({ _id: req.body.applicationId, email: student.email, domain: batch.domain, status: { $in: ['Approved', 'Joined'] } }).session(session)
       if (!application) throw problem('Select an approved application belonging to this student and domain.')
+    } else if (await InternshipApplication.exists({ email: student.email, domain: batch.domain, status: { $nin: ['Approved', 'Joined', 'Completed'] } }).session(session)) {
+      throw problem('Approve the Student’s existing internship application before enrolling them.')
     }
     const previous = await BatchEnrollment.findOne({ student: student._id, status: 'Enrolled' }).session(session)
     if (previous && (!req.body.transfer || String(previous.batch) === String(batch._id))) throw problem('Student is already enrolled. Use Transfer to change batches.', 409)

@@ -60,13 +60,13 @@ export function createStudentRouter({ emailConfigured = resetEmailConfigured, se
   })
 
   router.get('/me', requireStudent, (req, res) => respond(res, { student: studentDto(req.student), csrfToken: csrfFor(req.studentToken), expiresAt: req.studentSession.expiresAt }))
-  router.get('/dashboard', requireStudent, async (req, res) => { const track = await getDomain(req.student.internshipDomain); const enrollment = (await getConfig()).settings.batchesEnabled ? await BatchEnrollment.findOne({ student: req.student._id, status: { $in: ['Enrolled', 'Completed'] } }).sort({ createdAt: -1 }).populate('batch').lean() : null; return respond(res, {
+  router.get('/dashboard', requireStudent, async (req, res) => { const track = await getDomain(req.student.internshipDomain); const enrollment = (await getConfig()).settings.batchesEnabled ? await BatchEnrollment.findOne({ student: req.student._id, status: { $in: ['Enrolled', 'Completed'] } }).sort({ createdAt: -1 }).populate('batch').lean() : null; const hasDomainAccess = Boolean(enrollment?.batch?.enabled && enrollment.batch.domain === req.student.internshipDomain && !['Draft', 'Cancelled'].includes(enrollment.batch.status)); return respond(res, {
     student: studentDto(req.student),
     internshipStatus: enrollment?.batch ? `${enrollment.status === 'Completed' ? 'Completed' : enrollment.batch.status} - ${enrollment.batch.name}` : 'Account registered',
-    internshipStatusNote: enrollment?.batch ? `Batch ${enrollment.batch.code} - Mentor: ${enrollment.batch.mentor}. See your learning progress and requirements below.` : 'Creating an account does not confirm internship selection. Use the existing application form or contact Innovix for enrollment status.',
-    liveClassUrl: track?.active && track.liveClassEnabled ? track.meetingUrl || null : null,
-    liveClass: track?.active && track.liveClassEnabled ? { title: track.classTitle, date: track.date, startTime: track.startTime, description: track.description } : null,
-    recordedClassesAvailable: ['Content Creation', 'Cyber Security'].includes(req.student.internshipDomain) && Boolean(track?.active && track.recordedClassesEnabled),
+    internshipStatusNote: hasDomainAccess ? `Batch ${enrollment.batch.code} - Mentor: ${enrollment.batch.mentor}. See your learning progress and requirements below.` : 'Creating an account does not confirm internship selection. Use the existing application form or contact Innovix for enrollment status.',
+    liveClassUrl: hasDomainAccess && track?.active && track.liveClassEnabled ? track.meetingUrl || null : null,
+    liveClass: hasDomainAccess && track?.active && track.liveClassEnabled ? { title: track.classTitle, date: track.date, startTime: track.startTime, description: track.description } : null,
+    recordedClassesAvailable: hasDomainAccess && ['Content Creation', 'Cyber Security'].includes(req.student.internshipDomain) && Boolean(track?.active && track.recordedClassesEnabled),
     learningProgress: null,
   }) })
   router.post('/logout', checkStudentOrigin, requireStudent, requireStudentCsrf, async (req, res) => {

@@ -1,6 +1,9 @@
 import { leadStatuses } from '../../shared/learning.js'
 import { updateLead } from './leads.js'
 import { Student } from '../models/student.js'
+import { InternshipBatch, BatchEnrollment } from '../models/learning.js'
+import mongoose from 'mongoose'
+import { getDomain } from '../models/management.js'
 import { TechNews } from '../models/tech-news.js'
 import { ContentVideo } from '../models/content-video.js'
 import bcrypt from 'bcryptjs'
@@ -9,7 +12,7 @@ import { env } from '../config/env.js'
 import { Admin, ContactMessage, CustomProject, Enquiry, InternshipApplication, Project, Testimonial } from '../models/index.js'
 import { clean, fail, respond, validateUrl } from '../utils/api.js'
 
-const allowedStatuses = { enquiries: leadStatuses, custom: ['New', 'Reviewing', 'Accepted', 'Contacted', 'Requirements Collected', 'Quoted', 'In Progress', 'Completed', 'Closed'], internships: ['New', 'Reviewed', 'Reviewing', 'Shortlisted', 'Interview Scheduled', 'Selected', 'Rejected', 'Joined', 'Completed'] }
+const allowedStatuses = { enquiries: leadStatuses, custom: ['New', 'Reviewing', 'Accepted', 'Contacted', 'Requirements Collected', 'Quoted', 'In Progress', 'Completed', 'Closed'], internships: ['Pending', 'Approved', 'Rejected', 'New', 'Reviewed', 'Reviewing', 'Shortlisted', 'Interview Scheduled', 'Selected', 'Joined', 'Completed'] }
 const models = { enquiries: Enquiry, custom: CustomProject, internships: InternshipApplication }
 const projectFields = ['title', 'slug', 'description', 'fullDescription', 'domain', 'technologies', 'level', 'projectType', 'image', 'demoUrl', 'features', 'modules', 'requirements', 'problemStatement', 'objectives', 'price', 'published', 'available', 'visibleWhenUnavailable', 'featured', 'trending', 'popular', 'newProject']
 const projectLists = new Set(['technologies', 'features', 'modules', 'requirements', 'objectives'])
@@ -75,11 +78,74 @@ export async function updateProject(req, res) {
 }
 export async function deleteProject(req, res) { const item = await Project.findByIdAndDelete(req.params.id); return item ? respond(res, { deleted: true }) : fail(res, 'Project not found', 404) }
 export async function listCollection(req, res) { const Model = models[req.params.collection]; if (!Model) return fail(res, 'Unknown collection', 404); const query = req.query.status ? { status: req.query.status } : {}; const records = Model.find(query).sort({ createdAt: -1 }); if (req.params.collection === 'enquiries') records.populate('project', 'price'); return respond(res, await records.lean()) }
-export async function updateStatus(req, res) { const Model = models[req.params.collection]; const valid = allowedStatuses[req.params.collection]; if (!Model || !valid?.includes(req.body.status)) return fail(res, 'Invalid collection or status'); if (req.params.collection === 'enquiries') return updateLead(req, res); const item = await Model.findByIdAndUpdate(req.params.id, { status: req.body.status }, { returnDocument: 'after', runValidators: true }); return item ? respond(res, item) : fail(res, 'Record not found', 404) }
+export async function updateStatus(req, res) { const Model = models[req.params.collection]; const valid = allowedStatuses[req.params.collection]; if (!Model || !valid?.includes(req.body.status)) return fail(res, 'Invalid collection or status'); if (req.params.collection === 'enquiries') return updateLead(req, res); if (req.params.collection === 'internships' && ['Approved', 'Rejected'].includes(req.body.status)) return fail(res, 'Use the internship decision action so access is handled safely.'); const item = await Model.findByIdAndUpdate(req.params.id, { status: req.body.status }, { returnDocument: 'after', runValidators: true }); return item ? respond(res, item) : fail(res, 'Record not found', 404) }
 export async function listMessages(req, res) { return respond(res, await ContactMessage.find().sort({ read: 1, createdAt: -1 }).lean()) }
 export async function updateMessageRead(req, res) { const item = await ContactMessage.findByIdAndUpdate(req.params.id, { read: Boolean(req.body.read) }, { returnDocument: 'after' }); return item ? respond(res, item) : fail(res, 'Message not found', 404) }
 export async function deleteMessage(req, res) { const item = await ContactMessage.findByIdAndDelete(req.params.id); return item ? respond(res, { deleted: true }) : fail(res, 'Message not found', 404) }
 export async function listAdminTestimonials(req, res) { return respond(res, await Testimonial.find().sort({ createdAt: -1 }).lean()) }
+export async function decideInternshipApplication(req, res) {
+  const { decision, batchId } = req.body || {}
+  if (!['Approved', 'Rejected'].includes(decision)) return fail(res, 'Choose Approve or Reject.')
+  const application = await InternshipApplication.findById(req.params.id)
+  if (!application) return fail(res, 'Internship application not found.', 404)
+  if (decision === 'Rejected') {
+    let rejected
+    try {
+      await mongoose.connection.transaction(async session => {
+        const current = await InternshipApplication.findById(application._id).session(session)
+        if (!current || ['Approved', 'Joined', 'Rejected'].includes(current.status)) throw Object.assign(new Error('This application can no longer be rejected.'), { status: 409 })
+        if (await BatchEnrollment.exists({ application: current._id, status: { $in: ['Enrolled', 'Completed'] } }).session(session)) throw Object.assign(new Error('An enrolled application cannot be rejected.'), { status: 409 })
+        current.status = 'Rejected'
+        await current.save({ session })
+        rejected = current
+      })
+    } catch (error) {
+      if (error.status) return fail(res, error.message, error.status)
+      throw error
+    }
+    return respond(res, { application: rejected, accessGranted: false })
+  }
+  if (!mongoose.isObjectIdOrHexString(batchId)) return fail(res, 'Choose an eligible batch for this internship.')
+  const requestedDomain = await getDomain(application.domain)
+  if (!requestedDomain?.active) return fail(res, 'The requested internship domain is not currently available.', 409)
+  let enrollment
+  let linkedStudent
+  try {
+    await mongoose.connection.transaction(async session => {
+      const current = await InternshipApplication.findById(application._id).session(session)
+      if (!current) throw Object.assign(new Error('Internship application not found.'), { status: 404 })
+      linkedStudent = await Student.findOne({ email: current.email.trim().toLowerCase(), accountStatus: 'active' }).session(session)
+      if (!linkedStudent) throw Object.assign(new Error('No active Student account matches this applicant email. Ask the applicant to register with this email before approving.'), { status: 409 })
+      if (linkedStudent.internshipDomain !== requestedDomain.name) {
+        if (await BatchEnrollment.exists({ student: linkedStudent._id, status: 'Enrolled' }).session(session)) throw Object.assign(new Error('The Student already has an active enrollment in a different internship domain.'), { status: 409 })
+        linkedStudent.internshipDomain = requestedDomain.name
+        await linkedStudent.save({ session })
+      }
+      const existing = await BatchEnrollment.findOne({ application: current._id, status: { $in: ['Enrolled', 'Completed'] } }).session(session)
+      if (existing) {
+        if (current.status !== 'Approved' && current.status !== 'Joined') throw Object.assign(new Error('This application already has an enrollment and cannot be changed.'), { status: 409 })
+        enrollment = existing
+        current.status = 'Approved'
+        await current.save({ session })
+        return
+      }
+      if (!['Pending', 'New', 'Reviewed', 'Reviewing', 'Shortlisted', 'Interview Scheduled', 'Selected'].includes(current.status)) throw Object.assign(new Error('This application is no longer pending approval.'), { status: 409 })
+      const batch = await InternshipBatch.findOne({ _id: batchId, domain: requestedDomain.name, enabled: true, status: { $in: ['Upcoming', 'Active'] } }).session(session)
+      if (!batch) throw Object.assign(new Error('Choose an enabled Upcoming or Active batch for the requested internship domain.'), { status: 409 })
+      const reserved = await InternshipBatch.updateOne({ _id: batch._id, $expr: { $lt: ['$enrollmentCount', '$maxStudents'] } }, { $inc: { enrollmentCount: 1 } }, { session })
+      if (!reserved.modifiedCount) throw Object.assign(new Error('The selected batch is full.'), { status: 409 })
+      const existingEnrollment = await BatchEnrollment.findOne({ student: linkedStudent._id, status: 'Enrolled' }).session(session)
+      if (existingEnrollment) throw Object.assign(new Error('This Student already has an active internship enrollment.'), { status: 409 })
+      ;[enrollment] = await BatchEnrollment.create([{ student: linkedStudent._id, batch: batch._id, application: current._id }], { session })
+      current.status = 'Approved'
+      await current.save({ session })
+    })
+  } catch (error) {
+    if (error.status) return fail(res, error.message, error.status)
+    throw error
+  }
+  return respond(res, { application: await InternshipApplication.findById(application._id).lean(), enrollment, accessGranted: true })
+}
 export async function createTestimonial(req, res) { if (!req.body.studentName || !req.body.review) return fail(res, 'Student name and review are required'); if (!validateUrl(req.body.avatarUrl)) return fail(res, 'Avatar URL must be valid'); const payload = { studentName: clean(req.body.studentName, 120), course: clean(req.body.course, 120), college: clean(req.body.college, 160), project: clean(req.body.project, 160), review: clean(req.body.review, 2000), avatarUrl: clean(req.body.avatarUrl, 2000), published: req.body.published === true }; return respond(res, await Testimonial.create(payload), 201) }
 export async function updateTestimonial(req, res) { const payload = Object.fromEntries(['studentName', 'course', 'college', 'project', 'review', 'avatarUrl', 'published'].filter((key) => key in req.body).map((key) => [key, key === 'published' ? req.body[key] === true : clean(req.body[key], 2000)])); if ('avatarUrl' in payload && !validateUrl(payload.avatarUrl)) return fail(res, 'Avatar URL must be valid'); const item = await Testimonial.findByIdAndUpdate(req.params.id, { $set: payload }, { returnDocument: 'after', runValidators: true }); return item ? respond(res, item) : fail(res, 'Testimonial not found', 404) }
 export async function deleteTestimonial(req, res) { const item = await Testimonial.findByIdAndDelete(req.params.id); return item ? respond(res, { deleted: true }) : fail(res, 'Testimonial not found', 404) }

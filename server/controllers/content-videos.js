@@ -7,6 +7,7 @@ import { env } from '../config/env.js'
 import { fail, respond } from '../utils/api.js'
 import { loadStudentSession } from '../middleware/student-auth.js'
 import { mediaTypes, receiveMedia, removeMedia, storagePath } from '../storage/content-videos.js'
+import { studentHasDomainAccess } from '../services/learning-access.js'
 
 const videoDomains = new Set(['Content Creation', 'Cyber Security'])
 const domainFilter = (domain) => domain === 'Content Creation'
@@ -22,6 +23,7 @@ export function videoDto(item) {
 export async function listContentVideos(req, res) {
   const domain = req.student.internshipDomain
   if (!videoDomains.has(domain)) return fail(res, 'Recorded classes are not available for your domain.', 403)
+  if (!await studentHasDomainAccess(req.student)) return fail(res, 'Internship enrollment is required to access recorded classes.', 403)
   if (!await recordingEnabled(domain)) return fail(res, 'Recorded classes are currently unavailable.', 403)
   return respond(res, (await ContentVideo.find(visible(domain)).sort(order).lean()).map(videoDto))
 }
@@ -127,6 +129,7 @@ export async function streamContentMedia(req, res, next) {
   if (!preview) {
     if (!await loadStudentSession(req)) return fail(res, 'Please log in to watch recorded classes.', 401)
     if (!videoDomains.has(req.student.internshipDomain)) return fail(res, 'These recorded classes are not available for your domain.', 403)
+    if (!await studentHasDomainAccess(req.student)) return fail(res, 'Internship enrollment is required to access recorded classes.', 403)
     if (!await recordingEnabled(req.student.internshipDomain)) return fail(res, 'Recorded classes are currently unavailable.', 403)
   }
   const item = await ContentVideo.findOne({

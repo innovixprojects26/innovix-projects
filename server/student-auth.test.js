@@ -9,6 +9,7 @@ import jwt from 'jsonwebtoken'
 import { env } from './config/env.js'
 import { createStudentRouter } from './routes/student.js'
 import { Student, StudentSession } from './models/student.js'
+import { InternshipBatch, BatchEnrollment, initializeLearningModels } from './models/learning.js'
 import { hashToken, studentCookieOptions, studentCookieName } from './middleware/student-auth.js'
 import { contentVideoPublicRoutes } from './routes/content-videos.js'
 import adminRoutes from './routes/admin.js'
@@ -33,6 +34,7 @@ test('student registration, login, sessions, CSRF, reset, domain access and admi
   try {
     assert.ok(env.mongoUri && env.jwtSecret, 'MongoDB and JWT configuration required')
     await mongoose.connect(env.mongoUri, { dbName, serverSelectionTimeoutMS: 15000 })
+    await initializeLearningModels()
     await Promise.all([Student.init(), StudentSession.init()])
     const app = express()
     app.use(cors({ origin: env.clientUrl, credentials: true }))
@@ -90,6 +92,11 @@ test('student registration, login, sessions, CSRF, reset, domain access and admi
     const restored = await request('/student/me', 'GET', undefined, headers)
     assert.equal(restored.data.student.studentId, created.data.student.studentId)
     assert.equal(restored.data.csrfToken, loggedIn.data.csrfToken)
+    const unapprovedDashboard = (await request('/student/dashboard', 'GET', undefined, headers)).data
+    assert.equal(unapprovedDashboard.liveClassUrl, null, 'A registered account has no live-class access before enrollment')
+    assert.equal(unapprovedDashboard.recordedClassesAvailable, false)
+    const batch = await InternshipBatch.create({ name: 'Approved Content Batch', domain: fixture.internshipDomain, code: 'AUTH-APPROVED', startDate: new Date(Date.now() - 86400000), endDate: new Date(Date.now() + 30 * 86400000), mentor: 'Test Mentor', maxStudents: 5, status: 'Active', enabled: true })
+    await BatchEnrollment.create({ student: record._id, batch: batch._id })
     const dashboard = (await request('/student/dashboard', 'GET', undefined, headers)).data
     assert.equal(dashboard.liveClassUrl, liveClasses.find((item) => item.name === 'Content Creation').meetLink)
     assert.equal(dashboard.recordedClassesAvailable, true)
@@ -126,7 +133,7 @@ test('student registration, login, sessions, CSRF, reset, domain access and admi
     const analyticsHeaders = { Cookie: analyticsLogin.cookie.split(';')[0] }
     assert.equal((await request('/content-creation/videos', 'GET', undefined, analyticsHeaders)).status, 403)
     const analyticsDashboard = (await request('/student/dashboard', 'GET', undefined, analyticsHeaders)).data
-    assert.equal(analyticsDashboard.liveClassUrl, liveClasses.find((item) => item.name === 'Data Analytics').meetLink)
+    assert.equal(analyticsDashboard.liveClassUrl, null, 'An existing account without an approved enrollment cannot access a live class')
     assert.equal(analyticsDashboard.recordedClassesAvailable, false)
     assert.equal((await request('/no-email/forgot-password', 'POST', { email: fixture.email })).status, 503)
     assert.equal((await request('/failed-email/forgot-password', 'POST', { email: fixture.email })).status, 503)
