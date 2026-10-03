@@ -10,7 +10,7 @@ import bcrypt from 'bcryptjs'
 import { env } from './config/env.js'
 import { Student, StudentSession } from './models/student.js'
 import { Admin, Enquiry, InternshipApplication } from './models/index.js'
-import { WebsiteConfig, ensureDomains } from './models/management.js'
+import { WebsiteConfig, InternshipDomain, ensureDomains } from './models/management.js'
 import { InternshipBatch, BatchEnrollment, InternshipTask, TaskSubmission, Certificate, StudentNotification, LearningActivity, VideoProgress, LearningFile, initializeLearningModels } from './models/learning.js'
 import { ContentVideo } from './models/content-video.js'
 import { csrfFor, hashToken, studentCookieName } from './middleware/student-auth.js'
@@ -43,6 +43,7 @@ test('complete learning API workflows, isolated ownership, history, verification
     await mongoose.connect(env.mongoUri, { dbName, serverSelectionTimeoutMS: 15000 })
     await Promise.all([initializeLearningModels(), Student.init(), StudentSession.init(), Admin.init(), ContentVideo.init()])
     await ensureDomains()
+    await InternshipDomain.updateOne({ name: 'Content Creation' }, { $set: { recordedClassesEnabled: true } })
     const password = 'Learn@Code9'
     await Admin.create({ email: 'admin@example.test', passwordHash: await bcrypt.hash(password, 4) })
     const app = express(); app.use(express.json())

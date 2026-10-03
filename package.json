@@ -19,7 +19,13 @@
     "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "refresh:discover": "node server/refresh-discover.js"
+    "refresh:discover": "node server/refresh-discover.js",
+    "open:innovix": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\open-innovix.ps1 http://localhost:5173",
+    "open:innovix:local": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\open-innovix.ps1 http://localhost:5173",
+    "open:innovix:local-alt": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\open-innovix.ps1 http://localhost:5174",
+    "open:innovix:prod": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\open-innovix.ps1 https://innovixprojects.sempraxis.com",
+    "open:innovix:admin": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\open-innovix.ps1 https://innovixprojects.sempraxis.com/admin/login",
+    "open:innovix:github": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\open-innovix.ps1 https://github.com/innovixprojects26/innovix-projects"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

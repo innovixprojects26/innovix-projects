@@ -8,16 +8,28 @@ import { fail, respond } from '../utils/api.js'
 import { loadStudentSession } from '../middleware/student-auth.js'
 import { mediaTypes, receiveMedia, removeMedia, storagePath } from '../storage/content-videos.js'
 
-const contentDomain = { $or: [{ domain: 'Content Creation' }, { domain: { $exists: false } }] }
-const visible = () => ({ ...contentDomain, status: 'published', publishDate: { $lte: new Date() }, videoFile: { $exists: true, $ne: null } })
+const videoDomains = new Set(['Content Creation', 'Cyber Security'])
+const domainFilter = (domain) => domain === 'Content Creation'
+  ? { $or: [{ domain }, { domain: { $exists: false } }] }
+  : { domain }
+const visible = (domain) => ({ ...domainFilter(domain), status: 'published', publishDate: { $lte: new Date() }, videoFile: { $exists: true, $ne: null } })
 const order = { position: 1, _id: 1 }
 const locks = new Set()
 const previewSecret = () => createHmac('sha256', env.jwtSecret).update('content-creation-media-preview').digest('hex')
 export function videoDto(item) {
-  return { _id: item._id, title: item.title, module: item.module, description: item.description, publishDate: item.publishDate, status: item.status, duration: item.duration, position: item.position, hasVideo: Boolean(item.videoFile), hasThumbnail: Boolean(item.thumbnailFile) }
+  return { _id: item._id, domain: item.domain || 'Content Creation', title: item.title, module: item.module, description: item.description, publishDate: item.publishDate, status: item.status, duration: item.duration, position: item.position, hasVideo: Boolean(item.videoFile), hasThumbnail: Boolean(item.thumbnailFile) }
 }
-export async function listContentVideos(_req, res) { if (!await recordingEnabled()) return fail(res, 'Recorded classes are currently unavailable.', 403); return respond(res, (await ContentVideo.find(visible()).sort(order).lean()).map(videoDto)) }
-export async function adminContentVideos(_req, res) { return respond(res, (await ContentVideo.find(contentDomain).sort(order).lean()).map(videoDto)) }
+export async function listContentVideos(req, res) {
+  const domain = req.student.internshipDomain
+  if (!videoDomains.has(domain)) return fail(res, 'Recorded classes are not available for your domain.', 403)
+  if (!await recordingEnabled(domain)) return fail(res, 'Recorded classes are currently unavailable.', 403)
+  return respond(res, (await ContentVideo.find(visible(domain)).sort(order).lean()).map(videoDto))
+}
+export async function adminContentVideos(req, res) {
+  const domain = req.query.domain || 'Content Creation'
+  if (!videoDomains.has(domain)) return fail(res, 'Unknown internship domain.', 400)
+  return respond(res, (await ContentVideo.find(domainFilter(domain)).sort(order).lean()).map(videoDto))
+}
 
 export async function withVideo(req, res, next) {
   const id = req.params.id
@@ -36,6 +48,11 @@ export async function withVideo(req, res, next) {
 
 export async function saveContentVideo(req, res) {
   const article = req.contentVideo || new ContentVideo()
+  if (!req.contentVideo) {
+    const domain = req.body?.domain || 'Content Creation'
+    if (!videoDomains.has(domain)) return fail(res, 'Unknown internship domain.')
+    article.domain = domain
+  }
   for (const field of ['title', 'module', 'description', 'publishDate', 'status', 'duration']) {
     if (!Object.hasOwn(req.body || {}, field)) continue
     const value = req.body[field]
@@ -79,14 +96,16 @@ export async function deleteContentVideo(req, res) {
 
 export async function reorderContentVideos(req, res) {
   const ids = req.body?.ids
+  const domain = req.body?.domain || 'Content Creation'
+  if (!videoDomains.has(domain)) return fail(res, 'Unknown internship domain.')
   if (!Array.isArray(ids) || !ids.length || ids.length > 2000 || new Set(ids).size !== ids.length || ids.some((id) => !mongoose.isObjectIdOrHexString(id))) return fail(res, 'Provide a unique ordered list of video IDs.')
-  const current = await ContentVideo.find().select('_id').lean()
+  const current = await ContentVideo.find(domainFilter(domain)).select('_id').lean()
   if (ids.length !== current.length || current.some((item) => !ids.includes(String(item._id)))) return fail(res, 'The video list changed. Refresh and try again.', 409)
   // Transaction prevents partially applied ordering if a write fails.
   await mongoose.connection.transaction(async (session) => {
     await ContentVideo.bulkWrite(ids.map((id, position) => ({ updateOne: { filter: { _id: id }, update: { $set: { position } } } })), { session })
   })
-  return adminContentVideos(req, res)
+  return respond(res, (await ContentVideo.find(domainFilter(domain)).sort(order).lean()).map(videoDto))
 }
 
 export async function previewContentVideo(req, res) {
@@ -106,11 +125,15 @@ export async function streamContentMedia(req, res, next) {
     } catch { return fail(res, 'Preview expired. Open Preview again from Admin.', 401) }
   }
   if (!preview) {
-    if (!await recordingEnabled()) return fail(res, 'Recorded classes are currently unavailable.', 403)
     if (!await loadStudentSession(req)) return fail(res, 'Please log in to watch recorded classes.', 401)
-    if (req.student.internshipDomain !== 'Content Creation') return fail(res, 'These recorded classes are for Content Creation students.', 403)
+    if (!videoDomains.has(req.student.internshipDomain)) return fail(res, 'These recorded classes are not available for your domain.', 403)
+    if (!await recordingEnabled(req.student.internshipDomain)) return fail(res, 'Recorded classes are currently unavailable.', 403)
   }
-  const item = await ContentVideo.findOne({ _id: req.params.id, ...(preview ? {} : visible()) }).lean()
+  const item = await ContentVideo.findOne({
+    _id: req.params.id,
+    ...(preview ? {} : visible(req.student.internshipDomain)),
+  }).lean()
+  if (!preview && item && (item.domain || 'Content Creation') !== req.student.internshipDomain) return fail(res, 'These recorded classes are for another internship domain.', 403)
   const filename = item?.[req.params.kind === 'thumbnail' ? 'thumbnailFile' : 'videoFile']
   if (!filename) return fail(res, 'Media not found', 404)
   res.set({ 'Content-Type': mediaTypes[filename.split('.').pop()], 'Content-Disposition': 'inline', 'Cache-Control': 'private, no-store', 'Referrer-Policy': 'no-referrer' })

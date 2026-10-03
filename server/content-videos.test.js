@@ -22,10 +22,17 @@ test('Content Creation video upload, privacy, playback ranges, ordering and dele
     const { storagePath, matchesSignature, receiveMedia } = await import('./storage/content-videos.js')
     const { Student, StudentSession } = await import('./models/student.js')
     const { hashToken, studentCookieName } = await import('./middleware/student-auth.js')
+    const { InternshipDomain, ensureDomains } = await import('./models/management.js')
+    await ensureDomains()
+    await InternshipDomain.updateOne({ name: 'Content Creation' }, { $set: { recordedClassesEnabled: true } })
     const student = await Student.create({ fullName: 'Video Test Student', email: 'video-test@example.invalid', phone: '+919876543210', college: 'Test College', course: 'Media', yearOfStudy: '1st Year', internshipDomain: 'Content Creation', passwordHash: 'test-only-not-a-login-hash' })
     const studentToken = randomUUID().replaceAll('-', '') + randomUUID().replaceAll('-', '')
     await StudentSession.create({ student: student._id, authVersion: 0, tokenHash: hashToken(studentToken), expiresAt: new Date(Date.now() + 600000) })
     const studentCookie = `${studentCookieName()}=${studentToken}`
+    const cyberStudent = await Student.create({ fullName: 'Cyber Test Student', email: 'cyber-test@example.invalid', phone: '+919876543211', college: 'Test College', course: 'Security', yearOfStudy: '1st Year', internshipDomain: 'Cyber Security', passwordHash: 'test-only-not-a-login-hash' })
+    const cyberToken = randomUUID().replaceAll('-', '') + randomUUID().replaceAll('-', '')
+    await StudentSession.create({ student: cyberStudent._id, authVersion: 0, tokenHash: hashToken(cyberToken), expiresAt: new Date(Date.now() + 600000) })
+    const cyberCookie = `${studentCookieName()}=${cyberToken}`
     const app = express()
     app.use(express.json())
     app.use('/admin/content-creation/videos', contentVideoAdminRoutes)
@@ -38,6 +45,10 @@ test('Content Creation video upload, privacy, playback ranges, ordering and dele
     const token = jwt.sign({ role: 'admin' }, env.jwtSecret, { expiresIn: '5m' })
     const json = async (route, method = 'GET', data, auth = true) => {
       const response = await fetch(base + route, { method, headers: { 'Content-Type': 'application/json', ...(route.startsWith(pub) ? { Cookie: studentCookie } : {}), ...(auth ? { Authorization: `Bearer ${typeof auth === 'string' ? auth : token}` } : {}) }, ...(data ? { body: JSON.stringify(data) } : {}) })
+      return { status: response.status, ...(await response.json()) }
+    }
+    const studentJson = async (route, cookie) => {
+      const response = await fetch(base + route, { headers: { Cookie: cookie } })
       return { status: response.status, ...(await response.json()) }
     }
     const fixture = { title: 'Video test', module: 'Storytelling', description: 'Recording test', publishDate: '2026-01-01T00:00:00Z', status: 'draft' }
@@ -98,6 +109,32 @@ test('Content Creation video upload, privacy, playback ranges, ordering and dele
     const media = await fetch(`${base}${pub}/${id}/media/video`, { headers: { Range: 'bytes=16-31', Cookie: studentCookie } })
     assert.equal(media.status, 206)
     await media.arrayBuffer()
+    assert.deepEqual((await studentJson(pub, cyberCookie)).data, [], 'Cyber Security has an empty recorded-class list when no recordings exist')
+    const cyberRecording = await json(admin, 'POST', { ...fixture, title: 'Cyber test recording', domain: 'Cyber Security' })
+    assert.equal(cyberRecording.status, 201)
+    assert.equal(cyberRecording.data.domain, 'Cyber Security')
+    const cyberId = cyberRecording.data._id
+    const cyberUpload = await fetch(`${base}${admin}/${cyberId}/upload/video`, { method: 'PUT', headers: { 'Content-Type': 'application/octet-stream', 'X-File-Extension': 'mp4', Authorization: `Bearer ${token}` }, body: mp4 })
+    assert.equal(cyberUpload.status, 200)
+    assert.equal((await json(`${admin}/${cyberId}`, 'PATCH', { status: 'published' })).status, 200)
+    const cyberListed = await studentJson(pub, cyberCookie)
+    assert.equal(cyberListed.status, 200)
+    assert.deepEqual(cyberListed.data.map((item) => item.title), ['Cyber test recording'])
+    assert.equal((await studentJson(pub, studentCookie)).data.some((item) => item.domain === 'Cyber Security'), false, 'Internship libraries are isolated')
+    const cyberMedia = await fetch(`${base}${pub}/${cyberId}/media/video`, { headers: { Range: 'bytes=0-15', Cookie: cyberCookie } })
+    assert.equal(cyberMedia.status, 206)
+    await cyberMedia.arrayBuffer()
+    assert.notEqual((await fetch(`${base}${pub}/${id}/media/video`, { headers: { Cookie: cyberCookie } })).status, 200, 'Cyber Security students cannot stream Content Creation recordings')
+    await InternshipDomain.updateOne({ name: 'Cyber Security' }, { $set: { recordedClassesEnabled: false } })
+    assert.equal((await studentJson(pub, cyberCookie)).status, 403)
+    assert.equal((await fetch(`${base}${pub}/${cyberId}/media/video`, { headers: { Cookie: cyberCookie } })).status, 403)
+    assert.equal((await json(`${admin}?domain=Cyber%20Security`)).data.length, 1, 'The Cyber Security recording remains available to Admin while disabled for students')
+    await InternshipDomain.updateOne({ name: 'Cyber Security' }, { $set: { recordedClassesEnabled: true } })
+    await InternshipDomain.updateOne({ name: 'Content Creation' }, { $set: { recordedClassesEnabled: false } })
+    assert.equal((await studentJson(pub, studentCookie)).status, 403)
+    assert.equal((await fetch(`${base}${pub}/${id}/media/video`, { headers: { Cookie: studentCookie } })).status, 403)
+    assert.equal((await json(admin)).data.some((item) => item._id === id), true, 'Disabling Content Creation preserves all existing Admin recordings')
+    await InternshipDomain.updateOne({ name: 'Content Creation' }, { $set: { recordedClassesEnabled: true } })
     const second = (await json(admin, 'POST', { ...fixture, title: 'Second recording' })).data._id
     assert.equal((await json(`${pub}/${second}/media/video?preview=${preview}`, 'GET', undefined, false)).status, 404)
     assert.equal((await json(`${admin}/reorder`, 'PUT', { ids: [id, id] })).status, 400)
@@ -108,6 +145,7 @@ test('Content Creation video upload, privacy, playback ranges, ordering and dele
     assert.equal((await json(`${admin}/${id}`, 'PATCH', { status: 'draft' })).status, 200)
     assert.equal((await json(`${pub}/${id}/media/video`, 'GET', undefined, false)).status, 404)
     assert.equal((await json(`${admin}/${id}`, 'DELETE')).status, 200)
+    assert.equal((await json(`${admin}/${cyberId}`, 'DELETE')).status, 200)
     assert.deepEqual(await readdir(storage), [])
     assert.equal(await ContentVideo.findById(id), null)
     assert.equal((await json(`${pub}/${id}/media/video?preview=${preview}`, 'GET', undefined, false)).status, 404)

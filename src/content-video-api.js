@@ -1,6 +1,7 @@
 import { API_BASE, getAdminToken } from './api'
 
 export const contentVideoPath = '/content-creation/videos'
+export const contentVideoListPath = (domain) => `${contentVideoPath}?domain=${encodeURIComponent(domain)}`
 export function contentMediaUrl(id, kind = 'video', token) {
   return `${API_BASE}${contentVideoPath}/${encodeURIComponent(id)}/media/${kind}${token ? `?preview=${encodeURIComponent(token)}` : ''}`
 }

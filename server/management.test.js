@@ -20,6 +20,9 @@ test('central admin management preserves data and enforces public availability a
   try {
     await mongoose.connect(env.mongoUri, { dbName, serverSelectionTimeoutMS: 15000 })
     await Promise.all([Admin.init(), Student.init(), StudentSession.init(), Project.init()])
+    const untouchedDomain = await InternshipDomain.create({ name: 'Data Analytics', active: false, applicationsOpen: false, liveClassEnabled: false, recordedClassesEnabled: true, meetingUrl: 'https://example.test/unchanged' })
+    const contentLiveSettings = { name: 'Content Creation', liveClassEnabled: true, classActive: true, recordedClassesEnabled: true, classTitle: 'Existing Content session', meetingUrl: liveClasses.find(item => item.name === 'Content Creation').meetLink, date: '2026-10-04', startTime: '10:30', description: 'Preserve the configured session.' }
+    await InternshipDomain.create(contentLiveSettings)
     const password = 'Learn@Code9'
     await Admin.create({ email: 'admin@example.test', passwordHash: await bcrypt.hash(password, 4) })
     const app = express()
@@ -49,6 +52,31 @@ test('central admin management preserves data and enforces public availability a
     assert.equal(await WebsiteConfig.countDocuments(), 1, 'A fresh database persists the singleton defaults')
     assert.equal(defaults.settings.newsEnabled, true)
     assert.equal(defaults.settings.internshipsEnabled, true)
+    const contentTrack = defaults.domains.find(item => item.name === 'Content Creation')
+    assert.equal(contentTrack.recordedClassesEnabled, false)
+    assert.equal(contentTrack.liveClassEnabled, true)
+    for (const field of ['classTitle', 'meetingUrl', 'date', 'startTime', 'description', 'classActive']) assert.equal(contentTrack[field], contentLiveSettings[field], `Content Creation live-class setting ${field} remains unchanged`)
+    assert.equal((await request(`/admin/internship-domains/${contentTrack._id}`, 'PATCH', { recordedClassesEnabled: true })).status, 200)
+    await ensureDomains()
+    assert.equal((await request('/admin/internship-domains')).data.find(item => item.name === 'Content Creation').recordedClassesEnabled, true)
+    assert.equal((await request(`/admin/internship-domains/${contentTrack._id}`, 'PATCH', { recordedClassesEnabled: false })).status, 200)
+    const cyberTrack = (await request('/admin/internship-domains')).data.find(item => item.name === 'Cyber Security')
+    assert.equal(cyberTrack.liveClassEnabled, true)
+    assert.equal(cyberTrack.classActive, true)
+    assert.equal(cyberTrack.recordedClassesEnabled, true)
+    assert.equal(cyberTrack.meetingUrl, '')
+    const cyberUrl = 'https://zoom.us/j/123456789'
+    assert.equal((await request(`/admin/internship-domains/${cyberTrack._id}`, 'PATCH', { meetingUrl: cyberUrl, liveClassEnabled: false, recordedClassesEnabled: false })).status, 200)
+    await ensureDomains()
+    const persistedCyber = (await request('/admin/internship-domains')).data.find(item => item.name === 'Cyber Security')
+    assert.equal(persistedCyber.liveClassEnabled, false)
+    assert.equal(persistedCyber.recordedClassesEnabled, false)
+    assert.equal(persistedCyber.meetingUrl, cyberUrl)
+    assert.equal((await InternshipDomain.findById(untouchedDomain._id).lean()).meetingUrl, 'https://example.test/unchanged')
+    assert.equal((await InternshipDomain.findById(untouchedDomain._id).lean()).recordedClassesEnabled, true)
+    assert.equal((await request(`/admin/internship-domains/${cyberTrack._id}`, 'PATCH', { liveClassEnabled: true, recordedClassesEnabled: true })).status, 200)
+    assert.equal((await request('/configuration')).data.domains.find(item => item.name === 'Cyber Security').meetingUrl, '')
+    assert.equal((await request('/configuration')).data.domains.find(item => item.name === 'Content Creation').recordedClassesEnabled, false)
     // Delete only in this isolated test database, never the configured application database.
     await WebsiteConfig.deleteOne({ _id: 'website' })
     const simultaneous = await Promise.all(Array.from({ length: 5 }, () => request('/configuration')))
@@ -167,6 +195,15 @@ test('central admin management preserves data and enforces public availability a
     const custom = await CustomProject.create({ studentName: 'Learner', email: 'custom@example.test', projectIdea: 'Idea' })
     assert.equal((await request(`/admin/custom/${custom._id}/status`, 'PATCH', { status: 'Accepted' })).status, 200)
     assert.equal((await request('/admin/dashboard')).data.totalStudents, 1)
+    const cyberRegistration = { ...registration, email: 'cyber-student@example.test', phone: '9876543211', internshipDomain: 'Cyber Security' }
+    assert.equal((await request('/student/register', 'POST', cyberRegistration)).status, 201)
+    const cyberLogin = await request('/student/login', 'POST', { email: cyberRegistration.email, password, rememberMe: true })
+    assert.equal(cyberLogin.status, 200)
+    const cyberCookie = cyberLogin.cookie.split(';')[0]
+    const cyberDashboard = (await request('/student/dashboard', 'GET', undefined, { Cookie: cyberCookie })).data
+    assert.equal(cyberDashboard.liveClassUrl, cyberUrl)
+    assert.equal(cyberDashboard.recordedClassesAvailable, true)
+    assert.equal((await request('/configuration')).data.domains.find(item => item.name === 'Cyber Security').meetingUrl, '')
     assert.equal((await request('/admin/profile')).data.email, 'admin@example.test')
     assert.ok(await AdminActivity.countDocuments() > 0)
     assert.ok(!JSON.stringify((await request('/admin/activity')).data).includes(password))

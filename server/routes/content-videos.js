@@ -1,11 +1,11 @@
 import { audit } from '../controllers/management.js'
 import { Router } from 'express'
 import { requireAuth } from '../middleware/auth.js'
-import { requireStudent, requireContentCreationStudent } from '../middleware/student-auth.js'
+import { requireStudent } from '../middleware/student-auth.js'
 import { adminContentVideos, deleteContentVideo, listContentVideos, previewContentVideo, reorderContentVideos, saveContentVideo, streamContentMedia, uploadContentMedia, withVideo } from '../controllers/content-videos.js'
 
 export const contentVideoPublicRoutes = Router()
-contentVideoPublicRoutes.get('/', requireStudent, requireContentCreationStudent, listContentVideos)
+contentVideoPublicRoutes.get('/', requireStudent, listContentVideos)
 contentVideoPublicRoutes.get('/:id/media/:kind', streamContentMedia)
 
 export const contentVideoAdminRoutes = Router()

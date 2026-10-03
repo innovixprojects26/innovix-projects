@@ -9,7 +9,7 @@ export async function publicConfiguration(_req, res) {
   const now = new Date()
   const [config, domains, announcements] = await Promise.all([getConfig(), InternshipDomain.find({ active: true }).lean(), Announcement.find({ active: true, $and: [{ $or: [{ startDate: null }, { startDate: { $lte: now } }] }, { $or: [{ endDate: null }, { endDate: { $gte: now } }] }] }).sort({ createdAt: -1 }).lean()])
   res.set('Cache-Control', 'no-store')
-  return respond(res, { ...config, services: config.services.filter(item => item.active !== false), domains: domains.map(item => ({ ...item, meetingUrl: item.liveClassEnabled && item.classActive ? item.meetingUrl : '' })), announcements })
+  return respond(res, { ...config, services: config.services.filter(item => item.active !== false), domains: domains.map(item => ({ ...item, meetingUrl: item.name === 'Cyber Security' || !item.liveClassEnabled || !item.classActive ? '' : item.meetingUrl })), announcements })
 }
 export async function readConfig(_req, res) { res.set('Cache-Control', 'no-store'); return respond(res, await getConfig()) }
 export async function saveConfig(req, res) {

@@ -19,7 +19,7 @@ Creating a student account does not create or approve an internship application.
 
 Public pages: `/login`, `/register`, `/forgot-password`, `/reset-password`.
 
-Protected pages: `/student`, `/student/internship`, `/student/recorded-classes`. Anonymous visitors are redirected to Login and returned to a validated student route after login. Recorded Content Creation classes require a Content Creation account; other domains display an unavailable message and cannot fetch that domain's video APIs.
+Protected pages: `/student`, `/student/internship`, `/student/recorded-classes`. Anonymous visitors are redirected to Login and returned to a validated student route after login. Recorded classes are independently enabled per domain for Content Creation and Cyber Security. Students can only list or stream recordings assigned to their own domain, and a disabled domain cannot access recorded-class endpoints.
 
 | Method | API | Purpose |
 | --- | --- | --- |
@@ -31,7 +31,7 @@ Protected pages: `/student`, `/student/internship`, `/student/recorded-classes`.
 | POST | `/api/student/forgot-password` | Request a reset email, or report missing email configuration |
 | POST | `/api/student/reset-password` | Consume a one-use reset token and revoke existing sessions |
 
-Existing `/api/content-creation/videos` list and `/api/content-creation/videos/:id/media/:kind` endpoints now require an active Content Creation student session. The existing scoped admin preview token remains valid for previews. Existing Zoom URLs and Daily Tech News endpoints are unchanged.
+The existing `/api/content-creation/videos` list and `/api/content-creation/videos/:id/media/:kind` endpoints require an active student session and enforce the student's configured internship domain and that domain's recording toggle. Admin video management remains under the existing Central Admin routes and supports Content Creation and Cyber Security libraries. Admin preview tokens remain scoped to previews. Live-class URLs and switches are managed through Central Admin; the Cyber Security Zoom URL is intentionally not stored in source code.
 
 ## Storage and security
 

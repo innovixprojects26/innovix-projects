@@ -20,8 +20,12 @@ export function mergeRanges(ranges) {
   return result
 }
 export async function videoActivity(req, res) {
-  if (req.student.internshipDomain !== 'Content Creation' || !await recordingEnabled()) throw problem('Recorded class unavailable.', 404)
-  const video = await ContentVideo.findOne({ _id: req.params.id, status: 'published', publishDate: { $lte: new Date() }, videoFile: { $exists: true } }).lean()
+  const domain = req.student.internshipDomain
+  if (!await recordingEnabled(domain)) throw problem('Recorded class unavailable.', 404)
+  const domainFilter = domain === 'Content Creation'
+    ? { $or: [{ domain }, { domain: { $exists: false } }] }
+    : { domain }
+  const video = await ContentVideo.findOne({ _id: req.params.id, ...domainFilter, status: 'published', publishDate: { $lte: new Date() }, videoFile: { $exists: true } }).lean()
   if (!video) throw problem('Recorded class unavailable.', 404)
   const position = req.body.position
   if (!Number.isFinite(position) || position < 0 || position > (video.duration || 86400) + 2) throw problem('Invalid playback position.')

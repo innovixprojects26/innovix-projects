@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom'
 import { Play, Video, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { studentFetch } from './student-api'
-import { contentMediaUrl, contentVideoPath } from './content-video-api'
+import { contentMediaUrl, contentVideoListPath } from './content-video-api'
 import './content-creation.css'
 
 // A supplied local portrait is picked up at build time. No stock or external person image.
@@ -24,16 +24,16 @@ export function ContentVideoPlayer({ item, token, onClose }) {
   return <ContentDialog onClose={onClose} labelId="cc-player-title"><div className="cc-player-head"><div><span>{item.module}</span><h2 id="cc-player-title">{item.title}</h2></div><button type="button" onClick={onClose} aria-label="Close video"><X size={20} /></button></div><video ref={video} controls controlsList="nodownload" crossOrigin="use-credentials" playsInline preload="metadata" src={contentMediaUrl(item._id, 'video', token)} poster={item.hasThumbnail ? contentMediaUrl(item._id, 'thumbnail', token) : undefined} onError={() => setError(true)} aria-label={item.title} /><p>{item.description}</p>{error && <p className="cc-error" role="alert">This video could not be played. Try refreshing or using a browser that supports its codec. MOV playback depends on the browser; ask your instructor for an MP4 version if needed.</p>}</ContentDialog>
 }
 
-export function RecordedClasses({ onClose }) {
+export function RecordedClasses({ onClose, domain = 'Content Creation' }) {
   const [state, setState] = useState({ items: [], loading: true, error: '' })
   const [attempt, setAttempt] = useState(0)
   const [watching, setWatching] = useState(null)
   useEffect(() => {
     let active = true
-    studentFetch(contentVideoPath).then((items) => { if (active) setState({ items, loading: false, error: '' }) }).catch((error) => { if (active) setState({ items: [], loading: false, error: error.message }) })
+    studentFetch(contentVideoListPath(domain)).then((items) => { if (active) setState({ items, loading: false, error: '' }) }).catch((error) => { if (active) setState({ items: [], loading: false, error: error.message }) })
     return () => { active = false }
-  }, [attempt])
-  return <ContentDialog library onClose={onClose} labelId="cc-library-title"><div className="cc-player-head"><div><span>Content Creation</span><h2 id="cc-library-title">Recorded Classes</h2></div><button type="button" onClick={onClose} aria-label="Close recorded classes"><X size={20} /></button></div>{state.loading && <p role="status">Loading recorded classes...</p>}{state.error && <div role="alert"><p>{state.error}</p><button className="button button-outline" onClick={() => { setState({ items: [], loading: true, error: '' }); setAttempt((value) => value + 1) }}>Retry</button></div>}{!state.loading && !state.error && !state.items.length && <p>Recorded classes will appear here when your instructor publishes them.</p>}<div className="cc-video-list">{state.items.map((item) => <article className="cc-video-card" key={item._id}><div className="cc-thumbnail">{item.hasThumbnail ? <img crossOrigin="use-credentials" src={contentMediaUrl(item._id, 'thumbnail')} alt={`Thumbnail for ${item.title}`} loading="lazy" /> : <Video size={32} aria-hidden="true" />}{item.duration > 0 && <span className="cc-duration">{Math.floor(item.duration / 60)}:{String(Math.floor(item.duration % 60)).padStart(2, '0')}</span>}</div><div className="cc-video-copy"><span className="cc-module">{item.module}</span><h5>{item.title}</h5><p>{item.description}</p><button className="button button-outline" onClick={() => setWatching(item)}><Play size={14} /> Watch Video</button></div></article>)}</div>{watching && <ContentVideoPlayer key={watching._id} item={watching} onClose={() => setWatching(null)} />}</ContentDialog>
+  }, [attempt, domain])
+  return <ContentDialog library onClose={onClose} labelId="cc-library-title"><div className="cc-player-head"><div><span>{domain}</span><h2 id="cc-library-title">Recorded Classes</h2></div><button type="button" onClick={onClose} aria-label="Close recorded classes"><X size={20} /></button></div>{state.loading && <p role="status">Loading recorded classes...</p>}{state.error && <div role="alert"><p>{state.error}</p><button className="button button-outline" onClick={() => { setState({ items: [], loading: true, error: '' }); setAttempt((value) => value + 1) }}>Retry</button></div>}{!state.loading && !state.error && !state.items.length && <p>Recorded classes will be available soon.</p>}<div className="cc-video-list">{state.items.map((item) => <article className="cc-video-card" key={item._id}><div className="cc-thumbnail">{item.hasThumbnail ? <img crossOrigin="use-credentials" src={contentMediaUrl(item._id, 'thumbnail')} alt={`Thumbnail for ${item.title}`} loading="lazy" /> : <Video size={32} aria-hidden="true" />}{item.duration > 0 && <span className="cc-duration">{Math.floor(item.duration / 60)}:{String(Math.floor(item.duration % 60)).padStart(2, '0')}</span>}</div><div className="cc-video-copy"><span className="cc-module">{item.module}</span><h5>{item.title}</h5><p>{item.description}</p><button className="button button-outline" onClick={() => setWatching(item)}><Play size={14} /> Watch Video</button></div></article>)}</div>{watching && <ContentVideoPlayer key={watching._id} item={watching} onClose={() => setWatching(null)} />}</ContentDialog>
 }
 
 export function ContentCreationCard({ index, meetingUrl, recordedEnabled = true, applicationsOpen = true }) {

@@ -1,0 +1,70 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Innovix: Localhost (Profile 2)",
+      "type": "pwa-chrome",
+      "request": "launch",
+      "url": "http://localhost:5173",
+      "webRoot": "${workspaceFolder}",
+      "runtimeExecutable": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+      "runtimeArgs": [
+        "--user-data-dir=C:\\Users\\HP\\AppData\\Local\\Google\\Chrome\\User Data",
+        "--profile-directory=\"Profile 2\"",
+        "--new-window"
+      ]
+    },
+    {
+      "name": "Innovix: Localhost Alt (5174, Profile 2)",
+      "type": "pwa-chrome",
+      "request": "launch",
+      "url": "http://localhost:5174",
+      "webRoot": "${workspaceFolder}",
+      "runtimeExecutable": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+      "runtimeArgs": [
+        "--user-data-dir=C:\\Users\\HP\\AppData\\Local\\Google\\Chrome\\User Data",
+        "--profile-directory=\"Profile 2\"",
+        "--new-window"
+      ]
+    },
+    {
+      "name": "Innovix: Production Site (Profile 2)",
+      "type": "pwa-chrome",
+      "request": "launch",
+      "url": "https://innovixprojects.sempraxis.com",
+      "webRoot": "${workspaceFolder}",
+      "runtimeExecutable": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+      "runtimeArgs": [
+        "--user-data-dir=C:\\Users\\HP\\AppData\\Local\\Google\\Chrome\\User Data",
+        "--profile-directory=\"Profile 2\"",
+        "--new-window"
+      ]
+    },
+    {
+      "name": "Innovix: Admin Login (Profile 2)",
+      "type": "pwa-chrome",
+      "request": "launch",
+      "url": "https://innovixprojects.sempraxis.com/admin/login",
+      "webRoot": "${workspaceFolder}",
+      "runtimeExecutable": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+      "runtimeArgs": [
+        "--user-data-dir=C:\\Users\\HP\\AppData\\Local\\Google\\Chrome\\User Data",
+        "--profile-directory=\"Profile 2\"",
+        "--new-window"
+      ]
+    },
+    {
+      "name": "Innovix: GitHub (Profile 2)",
+      "type": "pwa-chrome",
+      "request": "launch",
+      "url": "https://github.com/innovixprojects26/innovix-projects",
+      "webRoot": "${workspaceFolder}",
+      "runtimeExecutable": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+      "runtimeArgs": [
+        "--user-data-dir=C:\\Users\\HP\\AppData\\Local\\Google\\Chrome\\User Data",
+        "--profile-directory=\"Profile 2\"",
+        "--new-window"
+      ]
+    }
+  ]
+}
