@@ -14,7 +14,7 @@ export function StudentDashboard({ internshipOnly = false }) {
   const track = domains.find(item => item.name === student.internshipDomain)
   const [state, setState] = useState({ data: null, error: '' })
   const [attempt, setAttempt] = useState(0)
-  const liveClassUrl = student.internshipDomain === 'Cyber Security' ? state.data?.liveClassUrl : track?.meetingUrl
+  const liveClassUrl = state.data?.liveClassUrl
   useEffect(() => {
     let active = true
     studentFetch('/student/dashboard').then((data) => { if (active) setState({ data, error: '' }) }).catch((error) => { if (active) setState({ data: null, error: error.message }) })
@@ -29,7 +29,7 @@ export function StudentDashboard({ internshipOnly = false }) {
     {state.data && <>
       <div className="student-status"><b>Internship Status: {state.data.internshipStatus}</b><p>{state.data.internshipStatusNote}</p><a className="text-link" href="/internships#internship-application">View internship application <ArrowRight size={14} /></a></div>
       <div className="student-resource-grid">
-        <article><Video size={23} /><h2>{track?.classTitle || 'Live Class'}</h2>{track?.date && <p>{track.date} {track.startTime}</p>}{track?.description && <p>{track.description}</p>}<p>Join your {student.internshipDomain} learning session.</p>{track?.liveClassEnabled && track.classActive && liveClassUrl ? <a className="button button-dark" href={liveClassUrl} target="_blank" rel="noopener noreferrer">Join Live Class</a> : <p>Your domain’s live-class link will appear when available.</p>}</article>
+        <article><Video size={23} /><h2>{state.data.liveClass?.title || track?.classTitle || 'Live Class'}</h2>{state.data.liveClass?.date && <p>{state.data.liveClass.date} {state.data.liveClass.startTime}</p>}{state.data.liveClass?.description && <p>{state.data.liveClass.description}</p>}<p>Join your {student.internshipDomain} learning session.</p>{track?.liveClassEnabled && liveClassUrl ? <a className="button button-dark" href={liveClassUrl} target="_blank" rel="noopener noreferrer">Join Live Class</a> : <p>Your domain’s live-class link will appear when available.</p>}</article>
         <article><BookOpen size={23} /><h2>Recorded Classes</h2><p>Review lessons at your own pace.</p>{track?.recordedClassesEnabled ? <Link className="button button-outline" to="/student/recorded-classes">View Recorded Classes</Link> : <p>Recorded classes are currently unavailable for your domain.</p>}</article>
         {settings.newsEnabled && settings.techNewsEnabled && <article><BookOpen size={23} /><h2>Daily Tech News</h2><p>Explore technology updates and career insights curated for interns.</p><Link className="button button-outline" to="/tech-news">Read Daily Tech News</Link></article>}
         <article><BookOpen size={23} /><h2>Learning Progress</h2><p>Track your batch, assignments, completed learning and certificate requirements below.</p><a className="text-link" href="#learning-progress">View Progress</a></article>

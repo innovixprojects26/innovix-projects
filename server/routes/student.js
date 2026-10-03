@@ -64,8 +64,8 @@ export function createStudentRouter({ emailConfigured = resetEmailConfigured, se
     student: studentDto(req.student),
     internshipStatus: enrollment?.batch ? `${enrollment.status === 'Completed' ? 'Completed' : enrollment.batch.status} - ${enrollment.batch.name}` : 'Account registered',
     internshipStatusNote: enrollment?.batch ? `Batch ${enrollment.batch.code} - Mentor: ${enrollment.batch.mentor}. See your learning progress and requirements below.` : 'Creating an account does not confirm internship selection. Use the existing application form or contact Innovix for enrollment status.',
-    liveClassUrl: track?.active && track.liveClassEnabled && track.classActive ? track.meetingUrl : null,
-    liveClass: track?.active && track.liveClassEnabled && track.classActive ? { title: track.classTitle, date: track.date, startTime: track.startTime, description: track.description } : null,
+    liveClassUrl: track?.active && track.liveClassEnabled ? track.meetingUrl || null : null,
+    liveClass: track?.active && track.liveClassEnabled ? { title: track.classTitle, date: track.date, startTime: track.startTime, description: track.description } : null,
     recordedClassesAvailable: ['Content Creation', 'Cyber Security'].includes(req.student.internshipDomain) && Boolean(track?.active && track.recordedClassesEnabled),
     learningProgress: null,
   }) })

@@ -40,7 +40,7 @@ test('central admin management preserves data and enforces public availability a
       const response = await fetch(base + path, { method, headers: { 'Content-Type': 'application/json', Origin: new URL(env.clientUrl).origin, ...(token && path.startsWith('/admin') ? { Authorization: `Bearer ${token}` } : {}), ...extra }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) })
       return { status: response.status, cookie: response.headers.get('set-cookie'), ...await response.json() }
     }
-    for (const path of ['/admin/configuration', '/admin/students', '/admin/internship-domains', '/admin/announcements', '/admin/activity']) assert.equal((await request(path)).status, 401)
+    for (const path of ['/admin/configuration', '/admin/students', '/admin/internship-domains', '/admin/internships', '/admin/announcements', '/admin/activity']) assert.equal((await request(path)).status, 401)
     assert.equal((await request('/admin/login', 'POST', { email: 'admin@example.test', password: 'wrong' })).status, 401)
     token = (await request('/admin/login', 'POST', { email: 'admin@example.test', password })).data.token
     assert.ok(token)
@@ -150,6 +150,18 @@ test('central admin management preserves data and enforces public availability a
     await request(`/admin/internship-domains/${track._id}`, 'PATCH', { applicationsOpen: true })
     const application = await request('/internships/apply', 'POST', { name: 'Applicant', email: 'apply@example.test', phoneCountry: 'IN', phone: '9876543210', degreeCourse: 'BSc', department: 'IT', college: 'College', studyYear: 'Final', domain: track.name, skills: 'Writing', experienceLevel: 'Beginner', message: 'Ready to learn' })
     assert.equal(application.status, 201)
+    await InternshipApplication.updateOne({ _id: application.data._id }, { $set: { createdAt: new Date('2020-01-01T00:00:00.000Z') } })
+    const newApplication = await request('/internships/apply', 'POST', { name: 'New applicant', email: 'new-apply@example.test', phoneCountry: 'IN', phone: '9876543212', degreeCourse: 'BSc', department: 'IT', college: 'New College', studyYear: 'Final', domain: track.name, skills: 'Writing', experienceLevel: 'Beginner', message: 'Ready to learn' })
+    assert.equal(newApplication.status, 201)
+    const adminApplications = await request('/admin/internships')
+    assert.equal(adminApplications.status, 200)
+    assert.ok(adminApplications.data.some(item => item._id === application.data._id), 'Existing application remains visible')
+    assert.ok(adminApplications.data.some(item => item._id === newApplication.data._id), 'New public application is visible to Admin')
+    assert.equal(adminApplications.data[0]._id, newApplication.data._id, 'Admin applications are newest first')
+    assert.equal(adminApplications.data[0].name, 'New applicant')
+    assert.equal(adminApplications.data[0].email, 'new-apply@example.test')
+    assert.equal(adminApplications.data[0].college, 'New College')
+    assert.equal(adminApplications.data[0].domain, track.name)
     assert.equal((await request(`/admin/internships/${application.data._id}/status`, 'PATCH', { status: 'Reviewed' })).status, 200)
 
     const registration = { fullName: 'Learner', email: 'student@example.test', phoneCountry: 'IN', phone: '9876543210', college: 'College', course: 'BSc', yearOfStudy: 'Final Year', internshipDomain: track.name, password, confirmPassword: password }
@@ -158,6 +170,10 @@ test('central admin management preserves data and enforces public availability a
     assert.equal(login.status, 200)
     const cookie = login.cookie.split(';')[0]
     assert.equal((await request('/student/dashboard', 'GET', undefined, { Cookie: cookie })).data.liveClassUrl, 'https://example.test/meeting')
+    await request(`/admin/internship-domains/${track._id}`, 'PATCH', { classActive: false })
+    assert.equal((await request('/student/dashboard', 'GET', undefined, { Cookie: cookie })).data.liveClassUrl, 'https://example.test/meeting')
+    assert.equal((await request('/configuration')).data.domains.find(item => item.name === track.name).meetingUrl, 'https://example.test/meeting')
+    await request(`/admin/internship-domains/${track._id}`, 'PATCH', { classActive: true })
     await request(`/admin/internship-domains/${track._id}`, 'PATCH', { liveClassEnabled: false, recordedClassesEnabled: false })
     assert.equal((await request('/student/dashboard', 'GET', undefined, { Cookie: cookie })).data.liveClassUrl, null)
     assert.equal((await request('/content-creation/videos', 'GET', undefined, { Cookie: cookie })).status, 403)
@@ -203,11 +219,14 @@ test('central admin management preserves data and enforces public availability a
     const cyberDashboard = (await request('/student/dashboard', 'GET', undefined, { Cookie: cyberCookie })).data
     assert.equal(cyberDashboard.liveClassUrl, cyberUrl)
     assert.equal(cyberDashboard.recordedClassesAvailable, true)
+    await request(`/admin/internship-domains/${cyberTrack._id}`, 'PATCH', { meetingUrl: '' })
+    assert.equal((await request('/student/dashboard', 'GET', undefined, { Cookie: cyberCookie })).data.liveClassUrl, null)
+    await request(`/admin/internship-domains/${cyberTrack._id}`, 'PATCH', { meetingUrl: cyberUrl })
     assert.equal((await request('/configuration')).data.domains.find(item => item.name === 'Cyber Security').meetingUrl, '')
     assert.equal((await request('/admin/profile')).data.email, 'admin@example.test')
     assert.ok(await AdminActivity.countDocuments() > 0)
     assert.ok(!JSON.stringify((await request('/admin/activity')).data).includes(password))
-    assert.equal(await InternshipApplication.countDocuments(), 1)
+    assert.equal(await InternshipApplication.countDocuments(), 2)
     assert.equal(await InternshipDomain.countDocuments(), liveClasses.length)
   } finally {
     if (server) await new Promise(resolve => server.close(resolve))
