@@ -5,7 +5,7 @@ import { renderToString } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
 import { createServer } from 'vite'
 
-test('News sits beside the unchanged theme selector and reuses news/discovery for students and guests', async () => {
+test('Navbar puts About first and News before Contact and reuses news/discovery for students and guests', async () => {
   const vite = await createServer({ server: { middlewareMode: true, hmr: false }, appType: 'custom' })
   try {
     const { SiteContext, initialSite } = await vite.ssrLoadModule('/src/site-context.js')
@@ -20,7 +20,10 @@ test('News sits beside the unchanged theme selector and reuses news/discovery fo
     const render = (component, { settings = {}, currentStudent = student, path = '/news', error = '' } = {}) => renderToString(createElement(MemoryRouter, { initialEntries: [path] }, createElement(SiteContext.Provider, { value: { ...initialSite, error, settings: { ...initialSite.settings, ...settings } } }, createElement(StudentSessionContext.Provider, { value: { student: currentStudent, loading: false } }, component))))
     const navbar = render(createElement(Navbar))
     assert.match(navbar, /<option value="light">Light<\/option><option value="dark">Dark<\/option><option value="system" selected="">System<\/option>/)
-    assert.match(navbar, /<\/select><\/div><a[^>]*class="header-news[^>]*href="\/news"[^>]*>News<\/a><button class="notification-bell"/)
+    const navigation = navbar.match(/<nav id="primary-navigation"[\s\S]*?<div class="mobile-auth">/)[0]
+    assert.deepEqual([...navigation.matchAll(/href="([^"]+)"/g)].map(match => match[1]), ['/about', '/internships', '/domains', '/projects', '/news', '/contact'])
+    assert.equal((navbar.match(/href="\/news"/g) || []).length, 1)
+    assert.match(navigation, /aria-current="page"[^>]*class="header-news active"[^>]*href="\/news"/)
     assert.equal((navbar.match(/aria-label="Color theme"/g) || []).length, 1)
     const hidden = render(createElement(Navbar), { settings: { newsEnabled: false } })
     assert.ok(!hidden.includes('href="/news"'))

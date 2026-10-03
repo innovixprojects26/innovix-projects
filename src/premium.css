@@ -108,6 +108,19 @@ h1,h2 { letter-spacing: -.045em; }
 .nav-wrap { gap:20px; }
 .logo { font-size:18px; color:var(--text); }
 .logo-image { width:44px; height:44px; border-radius:12px; background:var(--on-primary); padding:3px; }
+.site-header .logo-image { width:60px; height:60px; object-fit:cover; background:transparent; padding:0; border:0; border-radius:0; box-shadow:none; }
+.site-header .nav-wrap { gap:12px; }
+.site-header .main-nav { gap:14px; }
+@media (max-width:680px) {
+  .site-header .logo-image { width:48px; height:48px; }
+  .site-header .nav-wrap { gap:8px; }
+}
+@media (max-width:380px) {
+  .site-header .logo { font-size:14px; gap:4px; }
+  .site-header .logo-image { width:44px; height:44px; }
+  .site-header .theme-selector { padding-left:6px; padding-right:6px; gap:2px; }
+  .site-header .theme-selector select { width:54px; }
+}
 [data-theme] .logo-muted { color:var(--text-secondary); }
 .search-box { max-width:220px; min-width:100px; background:var(--surface-soft); border-color:var(--border); border-radius:12px; }
 .search-box kbd { background:var(--surface); color:var(--text-secondary); border-color:var(--border); }
