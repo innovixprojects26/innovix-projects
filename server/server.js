@@ -25,7 +25,8 @@ const __dirname = path.dirname(__filename)
 const distDir = path.resolve(__dirname, '../dist')
 
 const app = express()
-if (env.trustProxyHops) app.set('trust proxy', env.trustProxyHops)
+app.set('trust proxy', 1)
+// if (env.trustProxyHops) app.set('trust proxy', env.trustProxyHops)
 app.use(helmet())
 const allowedOrigins = new Set([
   env.clientUrl,
