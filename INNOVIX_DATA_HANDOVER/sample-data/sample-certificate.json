@@ -1,0 +1,20 @@
+{
+  "_id": "507f1f77bcf86cd799439014",
+  "certificateId": "INX-CERT-2025-0001",
+  "student": "507f1f77bcf86cd799439015",
+  "batch": "507f1f77bcf86cd799439012",
+  "enrollment": "507f1f77bcf86cd799439016",
+  "studentId": "INX-AB12CD34",
+  "studentName": "Sample Student",
+  "domain": "Frontend Developer",
+  "batchName": "Frontend Developer Bootcamp",
+  "batchCode": "FD-2025-01",
+  "type": "Completion",
+  "startDate": "2025-02-01T00:00:00.000Z",
+  "endDate": "2025-02-28T00:00:00.000Z",
+  "duration": "4 Weeks",
+  "issueDate": "2025-03-01T00:00:00.000Z",
+  "status": "Active",
+  "createdAt": "2025-03-01T00:00:00.000Z",
+  "updatedAt": "2025-03-01T00:00:00.000Z"
+}

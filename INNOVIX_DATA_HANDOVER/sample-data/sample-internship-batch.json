@@ -1,0 +1,21 @@
+{
+  "_id": "507f1f77bcf86cd799439012",
+  "name": "Frontend Developer Bootcamp",
+  "domain": "Frontend Developer",
+  "code": "FD-2025-01",
+  "startDate": "2025-02-01T00:00:00.000Z",
+  "endDate": "2025-02-28T00:00:00.000Z",
+  "duration": "4 Weeks",
+  "mentor": "Sample Mentor",
+  "description": "A guided frontend internship focused on interface design and development.",
+  "maxStudents": 30,
+  "enrollmentCount": 12,
+  "applicationDeadline": "2025-01-25T00:00:00.000Z",
+  "status": "Draft",
+  "enabled": true,
+  "requiredVideos": [
+    "507f1f77bcf86cd799439020"
+  ],
+  "createdAt": "2025-01-10T10:00:00.000Z",
+  "updatedAt": "2025-01-10T10:00:00.000Z"
+}

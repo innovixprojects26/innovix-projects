@@ -1,0 +1,27 @@
+{
+  "_id": "507f1f77bcf86cd799439018",
+  "title": "Designing accessible user journeys",
+  "summary": "A short framework for building more inclusive digital experiences.",
+  "explanation": "Accessibility is a core product quality signal and improves long-term engagement.",
+  "whyItMatters": "Users rely on inclusive experiences across devices and contexts.",
+  "whatYouCanLearn": "Learn the principle of inclusive interaction design and usability reviews.",
+  "takeaway": "Accessibility should be designed in from the start, not patched later.",
+  "category": "UX Design",
+  "domains": [
+    "UI/UX Design"
+  ],
+  "type": "QUICK_LEARN",
+  "status": "published",
+  "featured": true,
+  "trending": true,
+  "readTime": 3,
+  "sourceName": "Innovix Projects",
+  "sourceUrl": "https://example.com/discover/article",
+  "source": "507f1f77bcf86cd799439019",
+  "imported": true,
+  "originalTitle": "Designing accessible user journeys",
+  "publishedAt": "2025-03-05T00:00:00.000Z",
+  "retrievedAt": "2025-03-05T00:00:00.000Z",
+  "createdAt": "2025-03-05T00:00:00.000Z",
+  "updatedAt": "2025-03-05T00:00:00.000Z"
+}

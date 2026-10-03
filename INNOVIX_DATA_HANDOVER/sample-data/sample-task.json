@@ -1,0 +1,25 @@
+{
+  "_id": "507f1f77bcf86cd799439013",
+  "title": "Build a responsive landing page",
+  "description": "Create a responsive landing page with a hero section, features and contact CTA.",
+  "instructions": "Use HTML, CSS and responsive layout principles. Include a simple mobile-first design.",
+  "domain": "Frontend Developer",
+  "scope": "Batch",
+  "batch": "507f1f77bcf86cd799439012",
+  "student": null,
+  "assignedDate": "2025-02-03T00:00:00.000Z",
+  "dueDate": "2025-02-10T00:00:00.000Z",
+  "maximumMarks": 100,
+  "referenceUrl": "https://example.com/reference-task",
+  "methods": [
+    "text",
+    "github",
+    "demo",
+    "file"
+  ],
+  "required": true,
+  "attachment": null,
+  "status": "Draft",
+  "createdAt": "2025-02-03T00:00:00.000Z",
+  "updatedAt": "2025-02-03T00:00:00.000Z"
+}

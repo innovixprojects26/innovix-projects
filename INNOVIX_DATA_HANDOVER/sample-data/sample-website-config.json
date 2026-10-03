@@ -1,0 +1,46 @@
+{
+  "_id": "website",
+  "settings": {
+    "newsEnabled": true,
+    "internshipsEnabled": true,
+    "discoverEnabled": true,
+    "discoverImportEnabled": false,
+    "discoverPublishingMode": "manual",
+    "projectsEnabled": true,
+    "projectEnquiriesEnabled": true,
+    "customRequestsEnabled": true,
+    "internshipApplicationsEnabled": true,
+    "techNewsEnabled": true,
+    "testimonialsEnabled": true,
+    "contactEnabled": true,
+    "supportEmail": "hello@example.com",
+    "supportPhone": "+91 90000 00000",
+    "whatsapp": "919000000000",
+    "instagramUrl": "https://instagram.com",
+    "youtubeUrl": "",
+    "linkedinUrl": "https://linkedin.com"
+  },
+  "homepage": {
+    "heroHeading": "Learn by doing.",
+    "heroHighlight": "Build what comes next.",
+    "heroSubtitle": "Explore internship opportunities and practical project-based learning.",
+    "primaryCta": "Explore Internships",
+    "aboutSummary": "Innovix Projects is a student-focused platform for guided internships and practical learning.",
+    "notice": ""
+  },
+  "services": [
+    {
+      "title": "Hands-on experience",
+      "description": "Build practical skills with guided work.",
+      "active": true
+    },
+    {
+      "title": "Technical direction",
+      "description": "Get guidance while you plan and refine your work.",
+      "active": true
+    }
+  ],
+  "discoverCategoriesInitialized": false,
+  "createdAt": "2025-01-01T00:00:00.000Z",
+  "updatedAt": "2025-01-01T00:00:00.000Z"
+}

@@ -1,0 +1,43 @@
+{
+  "_id": "507f1f77bcf86cd799439011",
+  "title": "AI Crop Recommendation System",
+  "slug": "ai-crop-recommendation-system",
+  "description": "Help farmers make smarter crop choices with a practical ML recommendation engine.",
+  "fullDescription": "A data-informed crop recommendation platform that blends soil, weather, and seasonal inputs into clear, actionable recommendations for modern agriculture.",
+  "domain": "AI & Machine Learning",
+  "technologies": [
+    "Python",
+    "TensorFlow"
+  ],
+  "level": "Intermediate",
+  "projectType": "Final Year Project",
+  "image": "https://example.com/project-image.jpg",
+  "demoUrl": "https://example.com/demo",
+  "features": [
+    "Soil and weather inputs",
+    "ML-powered recommendations"
+  ],
+  "modules": [
+    "Data collection",
+    "Model training"
+  ],
+  "requirements": [
+    "Python 3.11",
+    "Dataset access"
+  ],
+  "problemStatement": "Farmers need better crop suggestions based on field data.",
+  "objectives": [
+    "Reduce risk",
+    "Increase yields"
+  ],
+  "price": 2999,
+  "available": true,
+  "featured": true,
+  "visibleWhenUnavailable": true,
+  "published": true,
+  "trending": true,
+  "popular": true,
+  "newProject": false,
+  "createdAt": "2025-01-15T10:00:00.000Z",
+  "updatedAt": "2025-01-15T10:00:00.000Z"
+}
