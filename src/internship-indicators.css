@@ -1,0 +1,3 @@
+.internship-indicators{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:10px 0 14px;font-size:12px;line-height:1.5;color:var(--text-secondary,var(--muted));font-weight:600}
+.internship-rating{color:var(--accent,var(--coral))}
+.internship-indicator-divider{color:var(--border,var(--line));font-weight:400}

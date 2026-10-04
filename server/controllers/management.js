@@ -1,4 +1,6 @@
 import mongoose from 'mongoose'
+import { internshipIndicators } from '../services/internship-indicators.js'
+import { normalizeInternshipDomain } from '../../shared/internship-domain.js'
 import { WebsiteConfig, InternshipDomain, Announcement, AdminActivity, getConfig, ensureDomains, settingDefaults, homepageDefaults } from '../models/management.js'
 import { Student, StudentSession, studentDto } from '../models/student.js'
 import { Admin } from '../models/index.js'
@@ -9,7 +11,7 @@ export async function publicConfiguration(_req, res) {
 
   const now = new Date()
 
-  const [config, domains, announcements] = await Promise.all([
+  const [config, domains, announcements, indicators] = await Promise.all([
     getConfig(),
 
     InternshipDomain.find({
@@ -34,7 +36,8 @@ export async function publicConfiguration(_req, res) {
       ]
     })
       .sort({ createdAt: -1 })
-      .lean()
+      .lean(),
+    internshipIndicators()
   ])
 
   res.set('Cache-Control', 'no-store')
@@ -48,6 +51,7 @@ export async function publicConfiguration(_req, res) {
 
     domains: domains.map(item => ({
       ...item,
+      enrollmentCount: indicators[normalizeInternshipDomain(item.name)]?.enrollmentCount ?? 0,
 
       // Send meeting URL for all domains where live class is enabled
       meetingUrl: item.liveClassEnabled
