@@ -1,5 +1,4 @@
 import { BatchAdmin } from './BatchAdmin'
-import { isEligibleBatch } from '../shared/internship-domain'
 import { TaskAdmin, SubmissionsAdmin } from './TaskAdmin'
 import { CertificatesAdmin } from './CertificatePages'
 import { NotificationsAdmin, GamificationAdmin } from './EngagementAdmin'
@@ -226,8 +225,6 @@ function RequestsPage({ type }) {
 
 function RequestedInternships() {
   const { loading, data, error, reload } = useAdminData('/internships')
-  const { data: batches, loading: batchesLoading, error: batchError, reload: reloadBatches } = useAdminData('/learning/batches')
-  const [selectedBatches, setSelectedBatches] = useState({})
   const [actionError, setActionError] = useState('')
   const [updating, setUpdating] = useState(null)
   const rows = [...data].sort((a, b) => {
@@ -238,19 +235,17 @@ function RequestedInternships() {
     setUpdating(item._id)
     setActionError('')
     try {
-      await adminFetch(`/internships/${item._id}/decision`, { method: 'PATCH', body: JSON.stringify({ decision, ...(decision === 'Approved' ? { batchId: selectedBatches[item._id] } : {}) }) })
-      await Promise.all([reload(), reloadBatches()])
+      await adminFetch(`/internships/${item._id}/decision`, { method: 'PATCH', body: JSON.stringify({ decision }) })
+      await reload()
     } catch (requestError) { setActionError(requestError.message) }
     finally { setUpdating(null) }
   }
   return <AdminPage title="Requested Internships" eyebrow="Student Management · Internship Applications">
-    <p>Review existing applications. Approving requires a matching Student account and an eligible batch in the requested domain.</p>
-    <LoadState loading={loading || batchesLoading} error={error || batchError} retry={() => Promise.all([reload(), reloadBatches()])} />
+    <p>Review existing applications. Approving requires a matching Student account.</p>
+    <LoadState loading={loading} error={error} retry={reload} />
     {actionError && <div className="admin-error" role="alert">{actionError}</div>}
     {!loading && !error && (rows.length ? <div className="admin-record-list">{rows.map(item => {
       const canDecide = ['Pending', 'New', 'Reviewed', 'Reviewing', 'Shortlisted', 'Interview Scheduled', 'Selected'].includes(item.status)
-      const available = eligibleBatches(item, batches)
-      const batchId = available.some(batch => String(batch._id) === selectedBatches[item._id]) ? selectedBatches[item._id] : ''
       return <article className={`admin-record ${canDecide ? 'unread' : ''}`} key={item._id}>
         <div className="admin-record-head"><div><span className="eyebrow">{canDecide ? 'NEW REQUEST' : 'INTERNSHIP APPLICATION'}</span><h2>{item.name}</h2><time>Requested Date: {dateText(item.createdAt)}</time></div><span className={`status ${item.status === 'Approved' || item.status === 'Joined' ? 'live' : ''}`}>{item.status}</span></div>
         <h3>Student Details</h3>
@@ -265,26 +260,15 @@ function RequestedInternships() {
         </dl>
         {canDecide && <section className="internship-approval" aria-label={`Decision controls for ${item.name}'s internship request`}>
           <h3>Review this internship request</h3>
-          <label>Choose Eligible Batch
-            <select aria-label={`Eligible batch for ${item.name}`} value={batchId} onChange={event => setSelectedBatches(previous => ({ ...previous, [item._id]: event.target.value }))}>
-              <option value="">Choose an eligible batch</option>
-              {available.map(batch => <option key={batch._id} value={batch._id}>{batch.name} · {batch.code} · {batch.enrollmentCount}/{batch.maxStudents}</option>)}
-            </select>
-          </label>
-          {!batchesLoading && !batchError && !available.length && <p role="status">No eligible batch available. <Link className="text-link" to="/admin/batches">Create / Manage Batch</Link></p>}
           <div className="internship-approval-actions">
-            <button className="admin-button dark" disabled={updating === item._id || !batchId} onClick={() => decide(item, 'Approved')}>{updating === item._id ? 'Processing...' : 'Approve'}</button>
+            <button className="admin-button dark" disabled={updating === item._id} onClick={() => decide(item, 'Approved')}>{updating === item._id ? 'Processing...' : 'Approve'}</button>
             <button className="admin-button light" disabled={updating === item._id} onClick={() => decide(item, 'Rejected')}>Reject</button>
           </div>
         </section>}
-        {item.status === 'Approved' && <p className="internship-assignment" role="status"><b>Status: Approved</b><br />Assigned Batch: {item.assignedBatch ? `${item.assignedBatch.name}${item.assignedBatch.code ? ` (${item.assignedBatch.code})` : ''}` : 'Enrollment record unavailable'}.</p>}
+        {item.status === 'Approved' && <p className="internship-assignment" role="status"><b>Status: Approved</b><br />Internship access enabled.{item.assignedBatch && <> Assigned Batch: {item.assignedBatch.name}.</>}</p>}
       </article>
     })}</div> : <Empty>No internship applications yet.</Empty>)}
   </AdminPage>
-}
-
-function eligibleBatches(application, batches) {
-  return batches.filter(batch => isEligibleBatch(application, batch))
 }
 
 function Messages() {

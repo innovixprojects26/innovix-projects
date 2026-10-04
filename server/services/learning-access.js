@@ -1,13 +1,20 @@
 import mongoose from 'mongoose'
 import { sameInternshipDomain } from '../../shared/internship-domain.js'
 import { getConfig } from '../models/management.js'
+import { InternshipApplication } from '../models/index.js'
 import { BatchEnrollment, InternshipTask, InternshipBatch } from '../models/learning.js'
 export const problem = (message, status = 400) => Object.assign(new Error(message), { status })
 export const id = value => mongoose.isObjectIdOrHexString(value)
 export async function feature(name) { if (!(await getConfig()).settings[name]) throw problem('This feature is currently unavailable.', 404) }
 export async function studentHasDomainAccess(student) {
+  if (await studentHasApprovedApplication(student)) return true
   const enrollment = await BatchEnrollment.findOne({ student: student._id, status: { $in: ['Enrolled', 'Completed'] } }).sort({ createdAt: -1 }).populate('batch', 'domain enabled status').lean()
   return Boolean(enrollment?.batch?.enabled && sameInternshipDomain(enrollment.batch.domain, student.internshipDomain) && !['Draft', 'Cancelled'].includes(enrollment.batch.status))
+}
+export async function studentHasApprovedApplication(student) {
+  if (!student.email) return false
+  const applications = await InternshipApplication.find({ email: student.email, status: { $in: ['Approved', 'Joined', 'Completed'] } }).select('domain').lean()
+  return applications.some(application => sameInternshipDomain(application.domain, student.internshipDomain))
 }
 export async function taskQuery(student, { batchId, includeClosed = true } = {}) {
   const { settings } = await getConfig()

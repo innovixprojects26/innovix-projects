@@ -1,9 +1,9 @@
 import { leadStatuses } from '../../shared/learning.js'
 import { updateLead } from './leads.js'
 import { Student } from '../models/student.js'
-import { InternshipBatch, BatchEnrollment } from '../models/learning.js'
+import { BatchEnrollment } from '../models/learning.js'
 import mongoose from 'mongoose'
-import { normalizeInternshipDomain, sameInternshipDomain, isEligibleBatch } from '../../shared/internship-domain.js'
+import { normalizeInternshipDomain, sameInternshipDomain } from '../../shared/internship-domain.js'
 import { getDomain } from '../models/management.js'
 import { TechNews } from '../models/tech-news.js'
 import { ContentVideo } from '../models/content-video.js'
@@ -99,7 +99,7 @@ export async function updateMessageRead(req, res) { const item = await ContactMe
 export async function deleteMessage(req, res) { const item = await ContactMessage.findByIdAndDelete(req.params.id); return item ? respond(res, { deleted: true }) : fail(res, 'Message not found', 404) }
 export async function listAdminTestimonials(req, res) { return respond(res, await Testimonial.find().sort({ createdAt: -1 }).lean()) }
 export async function decideInternshipApplication(req, res) {
-  const { decision, batchId } = req.body || {}
+  const { decision } = req.body || {}
   if (!['Approved', 'Rejected'].includes(decision)) return fail(res, 'Choose Approve or Reject.')
   const application = await InternshipApplication.findById(req.params.id)
   if (!application) return fail(res, 'Internship application not found.', 404)
@@ -120,7 +120,6 @@ export async function decideInternshipApplication(req, res) {
     }
     return respond(res, { application: rejected, accessGranted: false })
   }
-  if (!mongoose.isObjectIdOrHexString(batchId)) return fail(res, 'Choose an eligible batch for this internship.')
   const requestedDomain = await getDomain(application.domain)
   if (!requestedDomain?.active) return fail(res, 'The requested internship domain is not currently available.', 409)
   let enrollment
@@ -136,22 +135,8 @@ export async function decideInternshipApplication(req, res) {
         linkedStudent.internshipDomain = normalizeInternshipDomain(requestedDomain.name)
         await linkedStudent.save({ session })
       }
-      const existing = await BatchEnrollment.findOne({ application: current._id, status: { $in: ['Enrolled', 'Completed'] } }).session(session)
-      if (existing) {
-        if (current.status !== 'Approved' && current.status !== 'Joined') throw Object.assign(new Error('This application already has an enrollment and cannot be changed.'), { status: 409 })
-        enrollment = existing
-        current.status = 'Approved'
-        await current.save({ session })
-        return
-      }
-      if (!['Pending', 'New', 'Reviewed', 'Reviewing', 'Shortlisted', 'Interview Scheduled', 'Selected'].includes(current.status)) throw Object.assign(new Error('This application is no longer pending approval.'), { status: 409 })
-      const batch = await InternshipBatch.findById(batchId).session(session)
-      if (!batch || !isEligibleBatch(current, batch)) throw Object.assign(new Error('Choose an enabled Upcoming or Active batch with space for the requested internship domain.'), { status: 409 })
-      const reserved = await InternshipBatch.updateOne({ _id: batch._id, $expr: { $lt: ['$enrollmentCount', '$maxStudents'] } }, { $inc: { enrollmentCount: 1 } }, { session })
-      if (!reserved.modifiedCount) throw Object.assign(new Error('The selected batch is full.'), { status: 409 })
-      const existingEnrollment = await BatchEnrollment.findOne({ student: linkedStudent._id, status: 'Enrolled' }).session(session)
-      if (existingEnrollment) throw Object.assign(new Error('This Student already has an active internship enrollment.'), { status: 409 })
-      ;[enrollment] = await BatchEnrollment.create([{ student: linkedStudent._id, batch: batch._id, application: current._id }], { session })
+      if (!['Pending', 'New', 'Reviewed', 'Reviewing', 'Shortlisted', 'Interview Scheduled', 'Selected', 'Approved', 'Joined'].includes(current.status)) throw Object.assign(new Error('This application is no longer pending approval.'), { status: 409 })
+      enrollment = await BatchEnrollment.findOne({ application: current._id, status: { $in: ['Enrolled', 'Completed'] } }).session(session)
       current.status = 'Approved'
       await current.save({ session })
     })
