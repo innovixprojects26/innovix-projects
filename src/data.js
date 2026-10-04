@@ -48,7 +48,7 @@ export const liveClasses = [
   },
   {
     name: 'Cyber Security',
-    meetLink: '',
+    meetLink: 'https://us05web.zoom.us/j/86814147367?pwd=EuD99Tg80i6ANPKjKQAPz8aD0UHfBd.1',
   },
 ]
 
