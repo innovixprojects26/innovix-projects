@@ -1,4 +1,5 @@
 import mongoose from 'mongoose'
+import { requireLearningStage } from './learning-stages.js'
 import { sameInternshipDomain } from '../../shared/internship-domain.js'
 import { getConfig } from '../models/management.js'
 import { InternshipApplication } from '../models/index.js'
@@ -21,12 +22,14 @@ export async function taskQuery(student, { batchId, includeClosed = true } = {})
   if (!await studentHasDomainAccess(student)) return { _id: { $exists: false } }
   const enrolled = settings.batchesEnabled ? await BatchEnrollment.find({ student: student._id, status: { $in: ['Enrolled', 'Completed'] }, ...(batchId ? { batch: batchId } : {}) }).distinct('batch') : []
   const batches = await InternshipBatch.find({ _id: { $in: enrolled }, enabled: true, status: { $nin: ['Draft', 'Cancelled'] } }).distinct('_id')
-  return { domain: student.internshipDomain, status: { $in: includeClosed ? ['Published', 'Closed'] : ['Published'] }, assignedDate: { $lte: new Date() }, $or: [{ scope: 'Domain' }, { scope: 'Student', student: student._id }, { scope: 'Batch', batch: { $in: batches } }] }
+  const names = (await InternshipTask.distinct('domain')).filter(name => sameInternshipDomain(name, student.internshipDomain))
+  return { domain: { $in: names }, status: { $in: includeClosed ? ['Published', 'Closed'] : ['Published'] }, assignedDate: { $lte: new Date() }, $or: [{ scope: 'Domain' }, { scope: 'Student', student: student._id }, { scope: 'Batch', batch: { $in: batches } }] }
 }
 export async function accessibleTask(student, taskId) {
   if (!id(taskId)) throw problem('Task not found.', 404)
   const item = await InternshipTask.findOne({ _id: taskId, ...await taskQuery(student) }).lean()
   if (!item) throw problem('Task not found.', 404)
+  await requireLearningStage(student, item)
   return item
 }
 export function learningError(error, _req, res, _next) {

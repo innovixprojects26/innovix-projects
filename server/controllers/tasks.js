@@ -1,3 +1,5 @@
+import { learningStages } from '../services/learning-stages.js'
+import { normalizeInternshipDomain } from '../../shared/internship-domain.js'
 import { InternshipTask, InternshipBatch, TaskSubmission, LearningFile } from '../models/learning.js'
 import { Student } from '../models/student.js'
 import { getDomain } from '../models/management.js'
@@ -11,16 +13,20 @@ export async function tasks(_req, res) { return respond(res, await InternshipTas
 export async function saveTask(req, res) {
   const item = req.params.id ? await InternshipTask.findById(req.params.id) : new InternshipTask()
   if (!item) throw problem('Task not found.', 404)
-  const fields = ['title', 'description', 'instructions', 'domain', 'scope', 'batch', 'student', 'assignedDate', 'dueDate', 'maximumMarks', 'referenceUrl', 'methods', 'required', 'status']
+  const fields = ['stage', 'title', 'description', 'instructions', 'domain', 'scope', 'batch', 'student', 'assignedDate', 'dueDate', 'maximumMarks', 'referenceUrl', 'methods', 'required', 'status']
   const value = { ...item.toObject(), ...Object.fromEntries(fields.filter(key => key in req.body).map(key => [key, req.body[key]])) }
   if (!['title', 'description', 'domain'].every(key => typeof value[key] === 'string' && value[key].trim()) || !['Domain', 'Batch', 'Student'].includes(value.scope) || !taskStatuses.includes(value.status)) throw problem('Complete the task title, description, domain, assignment target and status.')
+  value.stage ||= 'Task'
+  value.domain = normalizeInternshipDomain(value.domain)
+  if (!['Task', 'Project'].includes(value.stage)) throw problem('Choose Task or Project.')
+  if (value.stage === 'Project' && (!Array.isArray(value.methods) || !value.methods.includes('file'))) throw problem('Final projects must allow secure file uploads.')
   if (!(await getDomain(value.domain))?.active) throw problem('Choose an active domain.')
   if (!Number.isFinite(Date.parse(value.assignedDate)) || !Number.isFinite(Date.parse(value.dueDate)) || new Date(value.dueDate) < new Date(value.assignedDate)) throw problem('Due date must be on or after the assigned date.')
   if (value.maximumMarks !== undefined && value.maximumMarks !== null && value.maximumMarks !== '' && (!Number.isFinite(value.maximumMarks) || value.maximumMarks < 1 || value.maximumMarks > 10000)) throw problem('Enter valid maximum marks.')
   if (typeof value.required !== 'boolean' || !Array.isArray(value.methods) || !value.methods.length || value.methods.some(method => !submissionMethods.includes(method)) || !validateUrl(value.referenceUrl)) throw problem('Choose submission methods, a valid reference URL and required state.')
   if (value.scope === 'Batch' && (!id(value.batch) || !await InternshipBatch.exists({ _id: value.batch, domain: value.domain, ...(item.isNew || String(item.batch) !== String(value.batch) ? { status: { $in: ['Upcoming', 'Active'] } } : {}) }))) throw problem('Choose an upcoming or active batch in the task domain.')
   if (value.scope === 'Student' && (!id(value.student) || !await Student.exists({ _id: value.student, internshipDomain: value.domain }))) throw problem('Choose a student in the task domain.')
-  if (!item.isNew && await TaskSubmission.exists({ task: item._id }) && ['domain', 'scope', 'batch', 'student'].some(key => String(value[key] || '') !== String(item[key] || ''))) throw problem('The audience of a task with submissions cannot change.', 409)
+  if (!item.isNew && await TaskSubmission.exists({ task: item._id }) && ['stage', 'domain', 'scope', 'batch', 'student'].some(key => String(value[key] || '') !== String(item[key] || ''))) throw problem('The audience of a task with submissions cannot change.', 409)
   item.set(Object.fromEntries(fields.map(key => [key, value[key]])))
   item.batch = value.scope === 'Batch' ? value.batch : undefined; item.student = value.scope === 'Student' ? value.student : undefined
   item.maximumMarks = value.maximumMarks || undefined
@@ -29,7 +35,8 @@ export async function saveTask(req, res) {
 export async function studentTasks(req, res) {
   const items = await InternshipTask.find(await taskQuery(req.student)).sort({ dueDate: 1 }).limit(500).lean()
   const submissions = await TaskSubmission.find({ student: req.student._id, task: { $in: items.map(item => item._id) } }).lean()
-  return respond(res, items.map(item => ({ ...item, submission: submissions.find(row => String(row.task) === String(item._id)) || null })))
+  const stages = await learningStages(req.student)
+  return respond(res, items.filter(item => stages.videosDone && (item.stage !== 'Project' || stages.tasksDone)).map(item => ({ ...item, submission: submissions.find(row => String(row.task) === String(item._id)) || null })))
 }
 export async function submitTask(req, res) {
   const task = await accessibleTask(req.student, req.params.id)
@@ -49,6 +56,7 @@ export async function submitTask(req, res) {
     if (!task.methods.includes('file') || !id(req.body.file) || !await LearningFile.exists({ _id: req.body.file, task: task._id, student: req.student._id, purpose: 'submission' })) throw problem('Choose an uploaded file belonging to this task.')
     revision.file = req.body.file
   }
+  if (task.stage === 'Project' && !revision.file) throw problem('Upload your final project file before submitting.')
   if (!Object.keys(revision).length) throw problem('Provide at least one supported submission method.')
   revision.submittedAt = new Date(); revision.late = revision.submittedAt > task.dueDate
   const existing = await TaskSubmission.findOne({ task: task._id, student: req.student._id }).lean()

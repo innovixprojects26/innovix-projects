@@ -93,6 +93,8 @@ test('complete learning API workflows, isolated ownership, history, verification
     assert.equal((await admin(`/batches/${draft._id}`, 'DELETE')).status, 200)
     assert.equal((await admin(`/batches/${batch._id}`, 'DELETE')).status, 409)
 
+    const prerequisite = await ContentVideo.create({ title: 'Required introduction', module: 'Intro', description: 'Learning', publishDate: days(-8), status: 'published', videoFile: 'intro.mp4', duration: 10 })
+    await VideoProgress.create({ student: a.student._id, video: prerequisite._id, completedAt: new Date(), watchedSeconds: 10 })
     const taskBody = { title: 'Create a short film', description: 'Show your storytelling skills.', instructions: 'Explain your approach.', domain: 'Content Creation', scope: 'Batch', batch: batch._id, assignedDate: days(-5), dueDate: days(-2), maximumMarks: 100, methods: ['text', 'github', 'demo', 'file'], required: true, status: 'Published' }
     const taskResult = await admin('/tasks', 'POST', taskBody); assert.equal(taskResult.status, 200, JSON.stringify(taskResult)); const task = taskResult.data
     assert.equal((await studentCall(a, '/tasks')).data.length, 1)
@@ -149,7 +151,9 @@ test('complete learning API workflows, isolated ownership, history, verification
     assert.equal((await studentCall(a, `/videos/${video._id}/progress`, 'POST', { position: 10 })).data.completed, false, 'Instant seeking is not completion')
     await VideoProgress.updateOne({ student: a.student._id, video: video._id }, { $set: { position: 0, sampledAt: new Date(Date.now() - 10000) } })
     assert.equal((await studentCall(a, `/videos/${video._id}/progress`, 'POST', { position: 10 })).data.completed, true)
-    assert.equal((await studentCall(a, '/progress')).data.videosWatched, 1)
+    assert.equal((await studentCall(a, '/progress')).data.videosWatched, 2)
+    const finalProject = await InternshipTask.create({ ...taskBody, stage: 'Project', title: 'Final project' })
+    await TaskSubmission.create({ task: finalProject._id, student: a.student._id, status: 'Approved', revisions: [{ file: file.data._id, submittedAt: new Date(), reviewedAt: new Date(), reviewStatus: 'Approved' }] })
     assert.equal((await admin(`/batches/${batch._id}`, 'PATCH', { requiredVideos: [String(video._id)], status: 'Completed' })).status, 200)
     assert.equal((await BatchEnrollment.findById(back.data._id)).status, 'Completed')
     assert.equal((await admin(`/batches/${batch._id}/students/${back.data._id}`, 'DELETE')).status, 404)
@@ -195,7 +199,7 @@ test('complete learning API workflows, isolated ownership, history, verification
       if (setting === 'certificateVerificationEnabled') assert.equal((await call(`/certificates/verify/${cert.data.certificateId}`)).status, 404)
       await call('/admin/configuration/settings', 'PUT', { [setting]: true })
     }
-    assert.equal(await Certificate.countDocuments(), 2); assert.equal(await TaskSubmission.countDocuments(), 1); assert.equal(await InternshipTask.countDocuments(), 3)
+    assert.equal(await Certificate.countDocuments(), 2); assert.equal(await TaskSubmission.countDocuments(), 2); assert.equal(await InternshipTask.countDocuments(), 4)
     assert.ok(await StudentNotification.countDocuments() > 0); assert.ok(await LearningFile.countDocuments() > 0)
     assert.ok(!(await readdir(directory)).some(name => name.endsWith('.part')))
     assert.ok((await WebsiteConfig.findById('website')).settings.batchesEnabled)

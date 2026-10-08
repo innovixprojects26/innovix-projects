@@ -23,7 +23,7 @@ export function StudentDashboard({ internshipOnly = false }) {
   }, [attempt, student.studentId])
   return <section className="section container student-dashboard">
     <div className="student-welcome-banner"><span className="eyebrow">{internshipOnly ? 'My Internship' : 'Student Dashboard'}</span><h1>{internshipOnly ? student.internshipDomain : `Welcome, ${student.fullName}`}</h1><p>Your learning journey with Innovix Projects.</p><div className="student-welcome-orbit" aria-hidden="true"><span>LEARN</span><b>i</b><span>BUILD / GROW</span></div></div>
-    <nav className="student-dashboard-nav" aria-label="Student navigation"><Link to="/student">Dashboard</Link><Link to="/student/internship">My Internship</Link>{settings.tasksEnabled && <Link to="/student/tasks">My Tasks</Link>}{settings.certificateVerificationEnabled && <Link to="/student/certificates">My Certificates</Link>}{settings.newsEnabled && settings.techNewsEnabled && <Link to="/tech-news">Daily Tech News</Link>}</nav>
+    <nav className="student-dashboard-nav" aria-label="Student navigation"><Link to="/student">Dashboard</Link><Link to="/student/internship">My Internship</Link>{settings.tasksEnabled && <><Link to="/student/tasks">My Tasks</Link><Link to="/student/tasks?stage=Project">Final Projects</Link></>}{settings.certificateVerificationEnabled && <Link to="/student/certificates">My Certificates</Link>}{settings.newsEnabled && settings.techNewsEnabled && <Link to="/tech-news">Daily Tech News</Link>}</nav>
     <dl className="student-info-grid"><div><dt>Student ID</dt><dd>{student.studentId}</dd></div><div><dt>Internship Domain</dt><dd>{student.internshipDomain}</dd></div><div><dt>College / Institution</dt><dd>{student.college}</dd></div><div><dt>Course / Year</dt><dd>{student.course} · {student.yearOfStudy}</dd></div></dl>
     {state.error && <div role="alert"><p>{state.error}</p><button className="button button-outline" onClick={() => { setState({ data: null, error: '' }); setAttempt((value) => value + 1) }}>Retry</button></div>}
     {!state.data && !state.error && <p role="status">Loading your learning space...</p>}
@@ -52,6 +52,6 @@ export function StudentRecordedClasses() {
   const { student } = useStudentSession()
   const track = domains.find(item => item.name === student.internshipDomain)
   const navigate = useNavigate()
-  const supportedDomain = ['Content Creation', 'Cyber Security'].includes(student.internshipDomain)
+  const supportedDomain = Boolean(track)
   return <section className="section container student-dashboard"><span className="eyebrow">{student.internshipDomain}</span><h1>Recorded Classes</h1><Link className="back-link" to="/student">← Back to Dashboard</Link>{supportedDomain && track?.recordedClassesEnabled ? <RecordedClasses domain={student.internshipDomain} onClose={() => navigate('/student')} /> : <p>Recorded classes are currently unavailable for your domain.</p>}</section>
 }

@@ -1,4 +1,5 @@
 import mongoose from 'mongoose'
+import { sameInternshipDomain } from '../../shared/internship-domain.js'
 import { InternshipBatch, BatchEnrollment, InternshipTask } from '../models/learning.js'
 import { Student } from '../models/student.js'
 import { ContentVideo } from '../models/content-video.js'
@@ -25,7 +26,10 @@ export async function saveBatch(req, res) {
   if (!Number.isFinite(Date.parse(value.startDate)) || !Number.isFinite(Date.parse(value.endDate)) || new Date(value.endDate) <= new Date(value.startDate)) throw problem('End date must be after the start date.')
   if (value.applicationDeadline && (!Number.isFinite(Date.parse(value.applicationDeadline)) || new Date(value.applicationDeadline) > new Date(value.startDate))) throw problem('Application deadline must be on or before the start date.')
   if (!Array.isArray(value.requiredVideos) || value.requiredVideos.some(video => !id(video))) throw problem('Choose valid required videos.')
-  if (value.requiredVideos.length && (value.domain !== 'Content Creation' || await ContentVideo.countDocuments({ _id: { $in: value.requiredVideos }, status: 'published', duration: { $gt: 0 } }) !== new Set(value.requiredVideos.map(String)).size)) throw problem('Required videos must be published Content Creation videos with a known duration.')
+  if (value.requiredVideos.length) {
+    const videos = await ContentVideo.find({ _id: { $in: value.requiredVideos }, status: 'published', duration: { $gt: 0 }, $or: [{ videoFile: { $exists: true, $ne: null } }, { videoUrl: { $exists: true, $ne: '' } }] }).select('domain').lean()
+    if (videos.length !== new Set(value.requiredVideos.map(String)).size || videos.some(video => !sameInternshipDomain(video.domain || 'Content Creation', value.domain))) throw problem('Required videos must be published lessons in this batch domain with a known duration.')
+  }
   if (current.enrollmentCount && (value.domain !== current.domain || value.status === 'Draft')) throw problem('An enrolled batch cannot change domain or return to draft.', 409)
   if (value.status === 'Completed' && new Date(value.endDate) > new Date()) throw problem('A batch can be completed only after its end date.')
   current.set(Object.fromEntries(fields.map(key => [key, key === 'applicationDeadline' ? value[key] || undefined : value[key]])))

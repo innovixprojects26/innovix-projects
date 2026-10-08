@@ -14,6 +14,6 @@ export async function analytics(_req, res) {
   return respond(res, { counts: Object.fromEntries(Object.keys(counts).map((key, index) => [key, values[index]])), charts: { registrations, domains, applications, enquiries, completion, batches } })
 }
 export async function catalog(_req, res) {
-  const [students, batches, enrollments, videos] = await Promise.all([Student.find().select('studentId fullName internshipDomain leaderboardExcluded').sort({ fullName: 1 }).lean(), InternshipBatch.find().select('name code domain status enabled').sort({ startDate: -1 }).lean(), BatchEnrollment.find({ status: 'Completed' }).populate('student', 'studentId fullName').populate('batch', 'name code').lean(), ContentVideo.find({ status: 'published', duration: { $gt: 0 } }).select('title duration').lean()])
+  const [students, batches, enrollments, videos] = await Promise.all([Student.find().select('studentId fullName internshipDomain leaderboardExcluded').sort({ fullName: 1 }).lean(), InternshipBatch.find().select('name code domain status enabled').sort({ startDate: -1 }).lean(), BatchEnrollment.find({ status: 'Completed' }).populate('student', 'studentId fullName').populate('batch', 'name code').lean(), ContentVideo.find({ status: 'published', duration: { $gt: 0 } }).select('title duration domain').lean()])
   return respond(res, { students, batches, enrollments, videos })
 }

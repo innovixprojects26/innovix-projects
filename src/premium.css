@@ -226,6 +226,16 @@ h1,h2 { letter-spacing: -.045em; }
 .internship-card:nth-child(3n+2),.opportunity-card:nth-child(3n+2) { border-top:3px solid var(--violet); }
 .internship-card:nth-child(3n),.opportunity-card:nth-child(3n) { border-top:3px solid var(--accent); }
 .internship-card:nth-child(3n+1),.opportunity-card:nth-child(3n+1) { border-top:3px solid var(--primary); }
+.premium-internship-card { position:relative; overflow:hidden; border:1px solid var(--violet); background:linear-gradient(145deg,var(--tint-violet),var(--surface)); box-shadow:var(--glow); }
+.premium-internship-card h3 { color:var(--text); }
+.premium-track-badge { display:inline-flex; width:max-content; align-items:center; padding:6px 10px; border:1px solid var(--violet); border-radius:999px; background:var(--tint-violet); color:var(--violet); font-size:11px; font-weight:800; letter-spacing:.04em; }
+.internship-fee-premium { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.internship-fee-premium p { display:flex; align-items:baseline; gap:8px; margin:0; }
+.internship-fee-premium del { color:var(--text-secondary); font-size:14px; }
+.internship-fee-premium strong { color:var(--violet); font-size:24px; }
+.premium-track-saving { border-radius:999px; padding:5px 9px; background:var(--tint-cyan); color:var(--primary); font-size:12px; font-weight:800; }
+.premium-internship-detail .premium-track-badge { margin:12px 0; }
+.premium-internship-detail .internship-fee-premium { margin:16px 0; }
 [data-theme] .pricing-card.featured { background:linear-gradient(145deg,var(--tint-violet),var(--surface)); color:var(--text); border-color:var(--violet); box-shadow:var(--glow); }
 [data-theme] .pricing-card.featured>p { color:var(--text-secondary); }
 [data-theme] .pricing-card.featured .eyebrow { color:var(--violet); }

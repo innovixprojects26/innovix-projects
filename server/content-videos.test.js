@@ -58,7 +58,7 @@ test('Content Creation video upload, privacy, playback ranges, ordering and dele
       const response = await fetch(base + route, { headers: { Cookie: cookie } })
       return { status: response.status, ...(await response.json()) }
     }
-    const fixture = { title: 'Video test', module: 'Storytelling', description: 'Recording test', publishDate: '2026-01-01T00:00:00Z', status: 'draft' }
+    const fixture = { title: 'Video test', module: 'Storytelling', description: 'Recording test', publishDate: '2026-01-01T00:00:00Z', status: 'draft', duration: 65 }
     assert.equal((await json(admin, 'GET', undefined, false)).status, 401)
     assert.equal((await json(admin, 'POST', fixture, false)).status, 401)
     assert.equal((await json(admin, 'POST', { ...fixture, title: '' })).status, 400)
@@ -149,7 +149,7 @@ test('Content Creation video upload, privacy, playback ranges, ordering and dele
     const reordered = await json(`${admin}/reorder`, 'PUT', { ids: [second, id] })
     assert.equal(reordered.status, 200)
     assert.deepEqual(reordered.data.map((item) => item._id), [second, id])
-    assert.equal((await json(`${admin}/${id}`, 'PATCH', { status: 'draft' })).status, 200)
+    assert.equal((await json(`${admin}/${id}`, 'PATCH', { status: 'draft', duration: 65 })).status, 200)
     assert.equal((await json(`${pub}/${id}/media/video`, 'GET', undefined, false)).status, 404)
     assert.equal((await json(`${admin}/${id}`, 'DELETE')).status, 200)
     assert.equal((await json(`${admin}/${cyberId}`, 'DELETE')).status, 200)

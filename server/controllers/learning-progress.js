@@ -1,10 +1,11 @@
 import { VideoProgress, LearningActivity } from '../models/learning.js'
 import { ContentVideo } from '../models/content-video.js'
 import { Student } from '../models/student.js'
-import { recordingEnabled, getConfig } from '../models/management.js'
+import { recordingEnabled, getConfig, InternshipDomain } from '../models/management.js'
 import { learningProgress } from '../services/learning-progress.js'
+import { videoSequence } from '../services/learning-stages.js'
 import { recordActivity } from '../services/learning-activity.js'
-import { problem } from '../services/learning-access.js'
+import { problem, studentHasDomainAccess } from '../services/learning-access.js'
 import { respond } from '../utils/api.js'
 
 export async function progress(req, res) {
@@ -25,8 +26,10 @@ export async function videoActivity(req, res) {
   const domainFilter = domain === 'Content Creation'
     ? { $or: [{ domain }, { domain: { $exists: false } }] }
     : { domain }
-  const video = await ContentVideo.findOne({ _id: req.params.id, ...domainFilter, status: 'published', publishDate: { $lte: new Date() }, videoFile: { $exists: true } }).lean()
+  const video = await ContentVideo.findOne({ _id: req.params.id, $and: [domainFilter, { status: 'published', publishDate: { $lte: new Date() } }, { $or: [{ videoFile: { $exists: true, $ne: null } }, { videoUrl: { $exists: true, $ne: '' } }] }] }).lean()
   if (!video) throw problem('Recorded class unavailable.', 404)
+  if (!await studentHasDomainAccess(req.student)) throw problem('Approved internship access is required.', 403)
+  if (videoSequenceLocked(await videoSequence(req.student, domain), video._id)) throw problem('Complete the previous lesson before watching this video.', 403)
   const position = req.body.position
   if (!Number.isFinite(position) || position < 0 || position > (video.duration || 86400) + 2) throw problem('Invalid playback position.')
   const now = new Date(), query = { student: req.student._id, video: video._id }
@@ -44,6 +47,18 @@ export async function videoActivity(req, res) {
   if (watchedSeconds > item.watchedSeconds) await recordActivity(req.student._id, 'learning-day', `learning-day:${now.toISOString().slice(0, 10)}`, 'Recorded class learning', 2)
   if (completedAt) await recordActivity(req.student._id, 'video-completed', `video:${video._id}`, `Completed video: ${video.title}`, 30)
   return respond(res, { watchedSeconds, completed: Boolean(completedAt) })
+}
+const videoSequenceLocked = (sequence, videoId) => sequence.get(String(videoId))?.locked ?? true
+export async function paymentRecords(_req, res) {
+  const [enrollments, domains] = await Promise.all([
+    BatchEnrollment.find().populate('student', 'studentId fullName email').populate('batch', 'name code domain').sort({ createdAt: -1 }).lean(),
+    InternshipDomain.find().select('name price').lean(),
+  ])
+  const prices = new Map(domains.map(item => [item.name, item.price]))
+  return respond(res, {
+    internships: enrollments.map(item => ({ _id: item._id, student: item.student, batch: item.batch, fee: prices.get(item.batch?.domain), status: item.paymentStatus || 'Not Paid', enrollmentStatus: item.status, createdAt: item.createdAt })),
+    projects: [],
+  })
 }
 export function achievements(events, now = new Date()) {
   const count = type => events.filter(event => event.type === type).length

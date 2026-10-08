@@ -91,6 +91,10 @@ export async function listDomains(_req, res) { await ensureDomains(); return res
 export async function updateDomain(req, res) {
   const item = await InternshipDomain.findById(req.params.id)
   if (!item) return fail(res, 'Internship not found', 404)
+  if ('price' in req.body) {
+    if (typeof req.body.price !== 'number' || !Number.isFinite(req.body.price) || req.body.price < 0 || req.body.price > 1000000 || Math.abs(Math.round(req.body.price * 100) - req.body.price * 100) > 0.000001) return fail(res, 'Enter a valid internship price with at most two decimal places.')
+    item.price = req.body.price
+  }
   for (const key of ['active', 'applicationsOpen', 'liveClassEnabled', 'recordedClassesEnabled', 'classActive', 'classTitle', 'meetingUrl', 'date', 'startTime', 'description']) {
     if (!(key in req.body)) continue
     const value = req.body[key]

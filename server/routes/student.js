@@ -68,7 +68,7 @@ export function createStudentRouter({ emailConfigured = resetEmailConfigured, se
     internshipStatusNote: hasDomainAccess ? enrollment?.batch ? `Batch ${enrollment.batch.code} - Mentor: ${enrollment.batch.mentor}. See your learning progress and requirements below.` : 'Your internship application is approved. Your domain resources are available.' : 'Creating an account does not confirm internship selection. Use the existing application form or contact Innovix for enrollment status.',
     liveClassUrl: hasDomainAccess && track?.active && track.liveClassEnabled && validLiveClassUrl(track.meetingUrl) ? track.meetingUrl : null,
     liveClass: hasDomainAccess && track?.active && track.liveClassEnabled ? { title: track.classTitle, date: track.date, startTime: track.startTime, description: track.description } : null,
-    recordedClassesAvailable: hasDomainAccess && ['Content Creation', 'Cyber Security'].includes(req.student.internshipDomain) && Boolean(track?.active && track.recordedClassesEnabled),
+    recordedClassesAvailable: hasDomainAccess && Boolean(track?.active && track.recordedClassesEnabled),
     learningProgress: null,
   }) })
   router.post('/logout', checkStudentOrigin, requireStudent, requireStudentCsrf, async (req, res) => {

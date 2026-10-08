@@ -4,7 +4,7 @@ import mongoose from 'mongoose'
 import { contactConfig, liveClasses, internshipRoles } from '../../src/data.js'
 
 const { Schema, model } = mongoose
-export const settingDefaults = { ...learningSettings, newsEnabled: true, internshipsEnabled: true, discoverEnabled: true, discoverImportEnabled: false, discoverPublishingMode: 'manual', projectsEnabled: true, projectEnquiriesEnabled: true, customRequestsEnabled: true, internshipApplicationsEnabled: true, techNewsEnabled: true, testimonialsEnabled: true, contactEnabled: true, supportEmail: contactConfig.email, supportPhone: contactConfig.phone, whatsapp: contactConfig.whatsapp, instagramUrl: 'https://instagram.com', youtubeUrl: '', linkedinUrl: 'https://linkedin.com' }
+export const settingDefaults = { internshipPaymentsEnabled: false, ...learningSettings, newsEnabled: true, internshipsEnabled: true, discoverEnabled: true, discoverImportEnabled: false, discoverPublishingMode: 'manual', projectsEnabled: true, projectEnquiriesEnabled: true, customRequestsEnabled: true, internshipApplicationsEnabled: true, techNewsEnabled: true, testimonialsEnabled: true, contactEnabled: true, supportEmail: contactConfig.email, supportPhone: contactConfig.phone, whatsapp: contactConfig.whatsapp, instagramUrl: 'https://instagram.com', youtubeUrl: '', linkedinUrl: 'https://linkedin.com' }
 export const homepageDefaults = { heroHeading: 'Learn by doing.', heroHighlight: 'Build what comes next.', heroSubtitle: 'Explore internship opportunities, gain real-time project experience, develop career-focused skills, and get guidance for your academic and technical projects.', primaryCta: 'Explore Internships', aboutSummary: 'Innovix Projects is a student-focused platform for internships, practical learning, real-time project exposure, skill development, academic project work, and technical guidance.', notice: '' }
 export const serviceDefaults = [
   { title: 'Hands-on experience', description: 'Build practical skills through guided work across frontend, design, Python, content, security, and full stack roles.', active: true },
@@ -15,7 +15,7 @@ export const serviceDefaults = [
 const fieldsFor = (defaults) => Object.fromEntries(Object.entries(defaults).map(([key, value]) => [key, { type: typeof value === 'boolean' ? Boolean : String, default: value }]))
 const configSchema = new Schema({ discoverCategoriesInitialized: { type: Boolean, default: false }, _id: { type: String, default: 'website' }, settings: { type: new Schema(fieldsFor(settingDefaults), { _id: false }), default: () => ({}) }, homepage: { type: new Schema(fieldsFor(homepageDefaults), { _id: false }), default: () => ({}) }, services: { type: [{ title: String, description: String, active: { type: Boolean, default: true } }], default: () => serviceDefaults } }, { timestamps: true })
 export const WebsiteConfig = model('WebsiteConfig', configSchema)
-export const InternshipDomain = model('InternshipDomain', new Schema({ name: { type: String, unique: true, required: true }, active: { type: Boolean, default: true }, applicationsOpen: { type: Boolean, default: true }, liveClassEnabled: { type: Boolean, default: true }, recordedClassesEnabled: { type: Boolean, default: false }, classTitle: { type: String, default: 'Live Class' }, meetingUrl: { type: String, default: '' }, date: { type: String, default: '' }, startTime: { type: String, default: '' }, description: { type: String, default: '' }, classActive: { type: Boolean, default: true }, classSettingsVersion: { type: Number, default: 0, select: false } }, { timestamps: true }))
+export const InternshipDomain = model('InternshipDomain', new Schema({ name: { type: String, unique: true, required: true }, price: { type: Number, default: 499, min: 0, max: 1000000 }, active: { type: Boolean, default: true }, applicationsOpen: { type: Boolean, default: true }, liveClassEnabled: { type: Boolean, default: true }, recordedClassesEnabled: { type: Boolean, default: false }, classTitle: { type: String, default: 'Live Class' }, meetingUrl: { type: String, default: '' }, date: { type: String, default: '' }, startTime: { type: String, default: '' }, description: { type: String, default: '' }, classActive: { type: Boolean, default: true }, classSettingsVersion: { type: Number, default: 0, select: false } }, { timestamps: true }))
 export const Announcement = model('Announcement', new Schema({ title: { type: String, required: true, maxlength: 160 }, message: { type: String, required: true, maxlength: 2000 }, type: { type: String, enum: ['Information', 'Success', 'Warning', 'Important'], default: 'Information' }, startDate: Date, endDate: Date, active: { type: Boolean, default: false } }, { timestamps: true }))
 export const AdminActivity = model('AdminActivity', new Schema({ action: String, target: String }, { timestamps: true }))
 
@@ -43,17 +43,19 @@ export async function ensureDomains() {
     InternshipDomain.updateOne({ name: 'Cyber Security', $or: [{ classSettingsVersion: { $lt: 1 } }, { classSettingsVersion: { $exists: false } }] }, { $set: { liveClassEnabled: true, classActive: true, recordedClassesEnabled: true, classSettingsVersion: 1 } }),
   ]
   await Promise.all(initialClassSettings)
+  // Initialize only absent prices; subsequent Admin edits always survive.
+  await InternshipDomain.updateMany({ price: { $exists: false } }, { $set: { price: 499 } })
 }
 export async function getDomain(name) {
   name = normalizeInternshipDomain(name)
   if (!name) return null
   const saved = await InternshipDomain.findOne({ name }).lean() || (await InternshipDomain.find().lean()).find(item => sameInternshipDomain(item.name, name))
-  if (saved) return saved
+  if (saved) return { price: 499, ...saved }
   if (![...internshipRoles, ...liveClasses.map(item => item.name)].includes(name)) return null
-  return { name, active: true, applicationsOpen: true, liveClassEnabled: true, recordedClassesEnabled: name === 'Content Creation', classActive: true, meetingUrl: liveClasses.find(item => item.name === name)?.meetLink || '' }
+  return { name, price: 499, active: true, applicationsOpen: true, liveClassEnabled: true, recordedClassesEnabled: name === 'Content Creation', classActive: true, meetingUrl: liveClasses.find(item => item.name === name)?.meetLink || '' }
 }
 export async function recordingEnabled(name) {
-  if (!['Content Creation', 'Cyber Security'].includes(name)) return false
+  if (!normalizeInternshipDomain(name)) return false
   const domain = await getDomain(name)
   return Boolean(domain?.active && domain.recordedClassesEnabled)
 }

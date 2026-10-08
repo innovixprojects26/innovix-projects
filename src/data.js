@@ -12,6 +12,7 @@ export const internshipRoles = [
   'Content Creation',
   'Cyber Security',
   'Full Stack Development',
+  'AI Tools',
 ]
 
 // Live class configuration
