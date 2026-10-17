@@ -5,7 +5,17 @@ const ref = (name, required = false) => ({ type: Schema.Types.ObjectId, ref: nam
 const text = (max, required = false) => ({ type: String, trim: true, maxlength: max, required })
 const batch = new Schema({ name: text(160, true), domain: text(100, true), code: { ...text(40, true), unique: true, uppercase: true }, startDate: { type: Date, required: true }, endDate: { type: Date, required: true }, duration: text(80), mentor: text(120, true), description: text(4000), maxStudents: { type: Number, min: 1, max: 10000, required: true }, enrollmentCount: { type: Number, default: 0, min: 0 }, applicationDeadline: Date, status: { type: String, enum: batchStatuses, default: 'Draft', index: true }, enabled: { type: Boolean, default: true }, requiredVideos: [ref('ContentCreationVideo')] }, { timestamps: true })
 export const InternshipBatch = model('InternshipBatch', batch)
-const enrollment = new Schema({ student: ref('Student', true), batch: ref('InternshipBatch', true), application: ref('InternshipApplication'), paymentStatus: { type: String, enum: ['Not Paid', 'Pending', 'Paid'], default: 'Not Paid' }, status: { type: String, enum: ['Enrolled', 'Completed', 'Removed', 'Transferred'], default: 'Enrolled' }, endedAt: Date }, { timestamps: true })
+const enrollment = new Schema({ student: ref('Student', true), batch: ref('InternshipBatch', true), application: ref('InternshipApplication'), paymentStatus: { type: String, enum: ['Not Paid', 'Pending', 'Paid', 'NOT_PAID', 'PAID'], default: 'Not Paid' }, status: { type: String, enum: ['Enrolled', 'Completed', 'Removed', 'Transferred'], default: 'Enrolled' }, endedAt: Date }, { timestamps: true })
+enrollment.add({ domain: String, month: Number, year: Number, enrolledAt: Date, learningAccessStatus: { type: String, enum: ['LOCKED', 'UNLOCKED'] }, paymentMode: { type: String, enum: ['test', 'live'] } })
+enrollment.add({ testPayment: { type: new Schema({ status: { type: String, enum: ['Creating', 'Pending', 'Paid'] }, amount: Number, currency: { type: String, enum: ['INR'] }, orderId: String, paymentId: String, verifiedAt: Date }, { _id: false }), default: undefined } })
+enrollment.add({ livePayment: { type: new Schema({
+  status: { type: String, enum: ['Creating', 'Pending', 'Paid', 'Failed'] },
+  amount: { type: Number, min: 100 },
+  currency: { type: String, enum: ['INR'] },
+  orderId: String,
+  paymentId: String,
+  verifiedAt: Date
+}, { _id: false }), default: undefined } })
 enrollment.index({ student: 1, status: 1 }, { unique: true, partialFilterExpression: { status: 'Enrolled' } })
 enrollment.index({ student: 1, batch: 1, createdAt: -1 })
 export const BatchEnrollment = model('BatchEnrollment', enrollment)

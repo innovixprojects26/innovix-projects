@@ -13,7 +13,7 @@ import { InternshipBatch, BatchEnrollment, initializeLearningModels } from './mo
 import { hashToken, studentCookieOptions, studentCookieName } from './middleware/student-auth.js'
 import { contentVideoPublicRoutes } from './routes/content-videos.js'
 import adminRoutes from './routes/admin.js'
-import { liveClasses } from '../src/data.js'
+import { liveClasses } from './config/live-classes.js'
 import { passwordError } from '../shared/student.js'
 
 test('new student passwords enforce composition, weak-pattern protection and confirmation', () => {
@@ -31,6 +31,7 @@ test('student registration, login, sessions, CSRF, reset, domain access and admi
   let server
   let capturedToken
   const emails = []
+  let deviceCookie = ''
   try {
     assert.ok(env.mongoUri && env.jwtSecret, 'MongoDB and JWT configuration required')
     await mongoose.connect(env.mongoUri, { dbName, serverSelectionTimeoutMS: 15000 })
@@ -48,11 +49,15 @@ test('student registration, login, sessions, CSRF, reset, domain access and admi
     await new Promise((resolve) => server.once('listening', resolve))
     const base = `http://127.0.0.1:${server.address().port}/api`
     const request = async (route, method = 'GET', body, headers = {}) => {
-      const response = await fetch(base + route, { method, headers: { 'Content-Type': 'application/json', Origin: new URL(env.clientUrl).origin, ...headers }, ...(body ? { body: JSON.stringify(body) } : {}) })
+      const response = await fetch(base + route, { method, headers: { Cookie: deviceCookie, 'Content-Type': 'application/json', Origin: new URL(env.clientUrl).origin, ...headers }, ...(body ? { body: JSON.stringify(body) } : {}) })
       const result = await response.json()
+      const cookies = response.headers.getSetCookie()
+      const device = cookies.find(value => value.startsWith('innovix_device='))
+      if (device) deviceCookie = device.split(';')[0]
+      const sessionCookie = cookies.find(value => value.startsWith('innovix_student='))
       assert.ok(!JSON.stringify(result).includes('passwordHash'), 'Password hashes must never be returned')
       assert.ok(!JSON.stringify(result).includes('resetTokenHash'), 'Reset hashes must never be returned')
-      return { status: response.status, cookie: response.headers.get('set-cookie'), ...result }
+      return { status: response.status, cookie: sessionCookie || null, ...result }
     }
     const password = 'Manoj@2026'
     const fixture = { fullName: 'Test Learner', email: 'student-auth-test@example.invalid', phoneCountry: 'IN', phone: '9876543210', college: 'Test College', course: 'Computer Science', yearOfStudy: '3rd Year', internshipDomain: 'Content Creation', password, confirmPassword: password }
@@ -96,7 +101,12 @@ test('student registration, login, sessions, CSRF, reset, domain access and admi
     assert.equal(unapprovedDashboard.liveClassUrl, null, 'A registered account has no live-class access before enrollment')
     assert.equal(unapprovedDashboard.recordedClassesAvailable, false)
     const batch = await InternshipBatch.create({ name: 'Approved Content Batch', domain: fixture.internshipDomain, code: 'AUTH-APPROVED', startDate: new Date(Date.now() - 86400000), endDate: new Date(Date.now() + 30 * 86400000), mentor: 'Test Mentor', maxStudents: 5, status: 'Active', enabled: true })
-    await BatchEnrollment.create({ student: record._id, batch: batch._id })
+    const enrollment = await BatchEnrollment.create({ student: record._id, batch: batch._id })
+    const unpaid = (await request('/student/dashboard', 'GET', undefined, headers)).data
+    assert.equal(unpaid.hasDomainAccess, false)
+    assert.equal((await request('/content-creation/videos', 'GET', undefined, headers)).status, 403)
+    // Isolated fixture only: provider verification is exercised by razorpay-test.test.js.
+    await BatchEnrollment.updateOne({ _id: enrollment._id }, { $set: { testPayment: { status: 'Paid', orderId: 'order_fixture', paymentId: 'pay_fixture', amount: 49900, currency: 'INR', verifiedAt: new Date() } } })
     const dashboard = (await request('/student/dashboard', 'GET', undefined, headers)).data
     assert.equal(dashboard.liveClassUrl, liveClasses.find((item) => item.name === 'Content Creation').meetLink)
     assert.equal(dashboard.recordedClassesAvailable, true)

@@ -1,3 +1,4 @@
+import { approvedInternshipTracks, internshipDisplayName } from './approved-internships.js'
 import { Link } from 'react-router-dom'
 import { ArrowRight, Check, FileText, Laptop, Rocket, Sparkles } from 'lucide-react'
 import { useSite } from './site-context'
@@ -28,7 +29,7 @@ export function HomeInternship() {
 export function InternshipDomains() {
   const { domains, settings } = useSite()
   if (!settings.internshipsEnabled) return null
-  const internshipRoles = domains.map(item => item.name)
+  const internshipRoles = approvedInternshipTracks(domains).map(item => internshipDisplayName(item.name))
   return <section className="section container home-opportunities"><SectionHeading eyebrow="Internship opportunities" title="Find a track to grow in." description="Choose a role that matches your interests. Your course or degree does not have to be in Computer Science." action={<Link className="text-link" to="/internships">See the internship program <ArrowRight size={16} /></Link>} /><div className="opportunity-grid">{internshipRoles.map((role, index) => <a href="/internships#internship-application" className="opportunity-card" key={role}><span>0{index + 1}</span><h3>{role}</h3><ArrowRight size={17} /></a>)}</div></section>
 }
 
@@ -38,7 +39,7 @@ export function PricingSection({ compact = false }) {
 
 export function AboutPage() {
   const { homepage, services, domains } = useSite()
-  const internshipRoles = domains.map(item => item.name)
+  const internshipRoles = approvedInternshipTracks(domains).map(item => internshipDisplayName(item.name))
   return <>
     <section className="about-hero"><div className="container"><span className="eyebrow">About Innovix Projects</span><h1>Experience that helps you<br /><em>move forward.</em></h1><p>{homepage.aboutSummary}</p><div className="about-hero-actions"><a className="button button-dark" href="/internships#internship-application">Apply for an Internship <ArrowRight size={16} /></a><Link className="button button-outline" to="/projects">Explore Projects <ArrowRight size={16} /></Link></div></div></section>
     <section className="section container about-service"><div className="about-service-heading"><span className="eyebrow">01 / Internships first</span><h2>Practice, guidance, and work you can show.</h2><p>Our internship program gives students room to learn by doing. Explore a role, work through practical tasks and real-time project briefs, and develop the confidence to explain your decisions.</p><a className="button button-dark" href="/internships#internship-application">Apply Now <ArrowRight size={16} /></a></div><div className="about-service-grid">{services.map((item, index) => <article key={item._id || index}><Laptop /><h3>{item.title}</h3><p>{item.description}</p></article>)}</div></section>

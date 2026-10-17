@@ -1,3 +1,5 @@
+import { StudentReviewsAdmin } from './StudentReviewsAdmin'
+import { EventsAdmin } from './EventsAdmin'
 import { BatchAdmin } from './BatchAdmin'
 import { TaskAdmin, SubmissionsAdmin } from './TaskAdmin'
 import { CertificatesAdmin } from './CertificatePages'
@@ -13,6 +15,7 @@ import { ArrowRight, BarChart3, FileText, FolderKanban, LogOut, Menu, MessageSqu
 import { adminFetch, apiFetch, getAdminToken } from './api'
 import { Logo, Price } from './components'
 import { ThemeSelector } from './ThemeSelector'
+import { internshipDisplayName } from './approved-internships.js'
 import { TechNewsAdmin } from './TechNewsAdmin'
 import { ContentVideoAdmin } from './ContentVideoAdmin'
 import { resolveInternationalPhone } from '../shared/phone'
@@ -64,7 +67,7 @@ function AdminLayout() {
     ['Internship Learning', [['/admin/batches', 'Batches', Users], ['/admin/tasks', 'Tasks & Final Projects', FileText], ['/admin/submissions', 'Submissions', FileText], ['/admin/payments', 'Payments', FileText], ['/admin/certificates', 'Certificates', Shield]]],
     ['Engagement', [['/admin/notifications', 'Notifications', MessageSquare], ['/admin/gamification', 'Gamification', BarChart3]]],
     ['Customer Management', [['/admin/enquiries', 'Project Enquiries / Leads', MessageSquare], ['/admin/custom-projects', 'Custom Project Requests', FileText], ['/admin/messages', 'Contact Messages', MessageSquare]]],
-    ['Content Management', [['/admin/homepage', 'Homepage Content', FileText], ['/admin/services', 'Services', FileText], ['/admin/announcements', 'Announcements', FileText]]],
+    ['Content Management', [['/admin/homepage', 'Homepage Content', FileText], ['/admin/services', 'Services', FileText], ['/admin/announcements', 'Announcements', FileText], ['/admin/events', 'Upcoming Events', FileText], ['/admin/student-reviews', 'Student Reviews', MessageSquare]]],
     ['System', [['/admin/website-settings', 'Website Settings', Shield], ['/admin/settings', 'Admin Settings', Shield]]],
   ]
   if (!getAdminToken()) return <Navigate to="/admin/login" replace />
@@ -72,7 +75,7 @@ function AdminLayout() {
   return <div className="admin-shell">
     {open && <button className="admin-backdrop" aria-label="Close navigation" onClick={() => setOpen(false)} />}
     <aside className={open ? 'admin-sidebar open' : 'admin-sidebar'}><div className="admin-brand"><Logo /><button onClick={() => setOpen(false)} aria-label="Close menu"><X size={18} /></button></div><nav aria-label="Admin navigation">{groups.map(([group, links]) => <div key={group}><p className="admin-nav-group">{group}</p>{links.map(([href, label, Icon]) => <NavLink end to={href} onClick={() => setOpen(false)} key={href} className={({ isActive }) => isActive ? 'active' : ''}><Icon size={17} />{label}</NavLink>)}</div>)}</nav><button className="admin-logout" onClick={logout}><LogOut size={17} /> Log out</button></aside>
-    <div className="admin-main"><header className="admin-topbar"><button className="admin-menu" onClick={() => setOpen(true)} aria-label="Open navigation"><Menu /></button><span>Innovix control room</span><ThemeSelector /><Link to="/">View site <ArrowRight size={15} /></Link></header><Routes><Route path="/batches" element={<BatchAdmin />} /><Route path="/tasks" element={<TaskAdmin />} /><Route path="/submissions" element={<SubmissionsAdmin />} /><Route path="/payments" element={<PaymentsAdmin />} /><Route path="/certificates" element={<CertificatesAdmin />} /><Route path="/notifications" element={<NotificationsAdmin />} /><Route path="/gamification" element={<GamificationAdmin />} /><Route path="/discover" element={<DiscoverAdmin />} /><Route path="/website-settings" element={<ConfigurationAdmin section="settings" />} /><Route path="/homepage" element={<ConfigurationAdmin section="homepage" />} /><Route path="/services" element={<ConfigurationAdmin section="services" />} /><Route path="/internship-domains" element={<InternshipAdmin />} /><Route path="/live-classes" element={<InternshipAdmin live />} /><Route path="/students" element={<StudentsAdmin />} /><Route path="/announcements" element={<AnnouncementsAdmin />} /><Route path="/settings" element={<AdminSettings />} /><Route path="/content-creation/videos" element={<ContentVideoAdmin />} /><Route path="/tech-news" element={<TechNewsAdmin />} /><Route path="/" element={<Dashboard />} /><Route path="/projects" element={<AdminProjects />} /><Route path="/enquiries" element={<LeadsAdmin />} /><Route path="/custom-projects" element={<RequestsPage type="custom" />} /><Route path="/applications" element={<RequestedInternships />} /><Route path="/internships" element={<RequestedInternships />} /><Route path="/messages" element={<Messages />} /><Route path="/testimonials" element={<TestimonialsAdmin />} /><Route path="*" element={<Navigate to="/admin" replace />} /></Routes></div>
+    <div className="admin-main"><header className="admin-topbar"><button className="admin-menu" onClick={() => setOpen(true)} aria-label="Open navigation"><Menu /></button><span>Innovix control room</span><ThemeSelector /><Link to="/">View site <ArrowRight size={15} /></Link></header><Routes><Route path="/batches" element={<BatchAdmin />} /><Route path="/tasks" element={<TaskAdmin />} /><Route path="/submissions" element={<SubmissionsAdmin />} /><Route path="/payments" element={<PaymentsAdmin />} /><Route path="/certificates" element={<CertificatesAdmin />} /><Route path="/notifications" element={<NotificationsAdmin />} /><Route path="/gamification" element={<GamificationAdmin />} /><Route path="/discover" element={<DiscoverAdmin />} /><Route path="/website-settings" element={<ConfigurationAdmin section="settings" />} /><Route path="/homepage" element={<ConfigurationAdmin section="homepage" />} /><Route path="/services" element={<ConfigurationAdmin section="services" />} /><Route path="/internship-domains" element={<InternshipAdmin />} /><Route path="/live-classes" element={<InternshipAdmin live />} /><Route path="/students" element={<StudentsAdmin />} /><Route path="/student-reviews" element={<StudentReviewsAdmin />} /><Route path="/events" element={<EventsAdmin />} /><Route path="/announcements" element={<AnnouncementsAdmin />} /><Route path="/settings" element={<AdminSettings />} /><Route path="/content-creation/videos" element={<ContentVideoAdmin />} /><Route path="/tech-news" element={<TechNewsAdmin />} /><Route path="/" element={<Dashboard />} /><Route path="/projects" element={<AdminProjects />} /><Route path="/enquiries" element={<LeadsAdmin />} /><Route path="/custom-projects" element={<RequestsPage type="custom" />} /><Route path="/applications" element={<RequestedInternships />} /><Route path="/internships" element={<RequestedInternships />} /><Route path="/messages" element={<Messages />} /><Route path="/testimonials" element={<TestimonialsAdmin />} /><Route path="*" element={<Navigate to="/admin" replace />} /></Routes></div>
   </div>
 }
 
@@ -214,7 +217,7 @@ function RequestsPage({ type }) {
   {['Selected', 'Joined'].includes(item.status) && <div><dt>Batch enrollment</dt><dd><Link to={`/admin/batches?application=${item._id}`}>Assign to Batch</Link></dd></div>}
   <div><dt>Department / Major</dt><dd>{item.department || '—'}</dd></div>
   <div><dt>Current / graduation year</dt><dd>{item.studyYear || '—'}</dd></div>
-  <div><dt>Applied role</dt><dd>{item.domain || '—'}</dd></div>
+  <div><dt>Applied role</dt><dd>{internshipDisplayName(item.domain) || '—'}</dd></div>
   <div><dt>Skills</dt><dd>{item.skills || '—'}</dd></div>
   <div><dt>Experience level</dt><dd>{item.experienceLevel || '—'}</dd></div>
   <div><dt>Availability</dt><dd>{item.availabilityDate ? new Date(item.availabilityDate).toLocaleDateString() : '—'}</dd></div>

@@ -6,6 +6,7 @@ import { problem, id } from '../services/learning-access.js'
 import { respond } from '../utils/api.js'
 import { certificateTypes } from '../../shared/learning.js'
 import { notifyStudent } from '../services/learning-notifications.js'
+import { normalizeInternshipDomain } from '../../shared/internship-domain.js'
 
 export const publicCertificate = item => Object.fromEntries(['certificateId', 'studentName', 'type', 'domain', 'batchName', 'duration', 'issueDate', 'status'].map(key => [key, item[key]]))
 export async function certificates(_req, res) { return respond(res, await Certificate.find().sort({ issueDate: -1 }).limit(500).lean()) }
@@ -26,7 +27,7 @@ export async function issueCertificate(req, res) {
   if (!result.eligible) throw problem(result.reasons.join(' '), 409)
   const batch = enrollment.batch
   const certificateId = `INX-INT-${new Date().getUTCFullYear()}-${randomBytes(8).toString('hex').toUpperCase()}`
-  const item = await Certificate.create({ certificateId, student: student._id, batch: batch._id, enrollment: enrollment._id, studentId: student.studentId, studentName: student.fullName, domain: batch.domain, batchName: batch.name, batchCode: batch.code, type: req.body.type, startDate: batch.startDate, endDate: batch.endDate, duration: batch.duration || `${Math.ceil((batch.endDate - batch.startDate) / 86400000)} days` })
+  const item = await Certificate.create({ certificateId, student: student._id, batch: batch._id, enrollment: enrollment._id, studentId: student.studentId, studentName: student.fullName, domain: normalizeInternshipDomain(batch.domain) || batch.domain, batchName: batch.name, batchCode: batch.code, type: req.body.type, startDate: batch.startDate, endDate: batch.endDate, duration: batch.duration || `${Math.ceil((batch.endDate - batch.startDate) / 86400000)} days` })
   await notifyStudent(student._id, `certificate:${item._id}:Active`, 'Certificate Issued', `${item.type}: ${item.certificateId}`, '/student/certificates')
   return respond(res, item, 201)
 }

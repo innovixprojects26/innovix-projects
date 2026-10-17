@@ -13,6 +13,7 @@ test('learning UI exposes real progress, private student routes, admin modules, 
     const { SiteContext, initialSite } = await vite.ssrLoadModule('/src/site-context.js')
     const { StudentSessionContext } = await vite.ssrLoadModule('/src/student-session-context.js')
     const { ProgressOverview, StudentTasks, StudentCertificates } = await vite.ssrLoadModule('/src/StudentLearning.jsx')
+    const { StudentDashboard } = await vite.ssrLoadModule('/src/StudentDashboard.jsx')
     const { CertificateVerificationCard, VerifyCertificate } = await vite.ssrLoadModule('/src/CertificatePages.jsx')
     const { NotificationCenter } = await vite.ssrLoadModule('/src/NotificationCenter.jsx')
     const { LearningForm, LearningUpload } = await vite.ssrLoadModule('/src/learning-ui.jsx')
@@ -26,6 +27,9 @@ test('learning UI exposes real progress, private student routes, admin modules, 
     const render = (element, { settings = {}, currentStudent = student, path = '/' } = {}) => renderToString(createElement(MemoryRouter, { initialEntries: [path] }, createElement(SiteContext.Provider, { value: { ...initialSite, settings: { ...initialSite.settings, ...settings } } }, createElement(StudentSessionContext.Provider, { value: { student: currentStudent, loading: false, csrfToken: 'test' } }, element)))).replaceAll('<!-- -->', '')
     const data = { enrollment: { status: 'Enrolled', batch: { name: 'Creative cohort', code: 'CC-01', domain: 'Content Creation', mentor: 'Mentor Name', startDate: '2026-01-01', endDate: '2026-01-11', status: 'Active' } }, internshipProgress: { percent: 50, daysCompleted: 5, daysRemaining: 5 }, tasksAssigned: 4, tasksCompleted: 1, tasksPending: 3, videosWatched: 0, discoveriesRead: 2, upcoming: [], activity: [], history: [], eligibility: { eligible: false, reasons: ['Required tasks remain.'], completedTasks: 1, requiredTasks: 4, completedVideos: 0, requiredVideos: 1 } }
     const overview = render(createElement(ProgressOverview, { data, settings: initialSite.settings }))
+    const analystDashboard = render(createElement(StudentDashboard, { internshipOnly: true }), { currentStudent: { ...student, internshipDomain: 'Data Analytics' } })
+    assert.ok(analystDashboard.includes('Data Analyst'))
+    assert.ok(!analystDashboard.includes('>Data Analytics<'))
     for (const label of ['Creative cohort', 'CC-01', 'Mentor Name', '50%', '5 days completed', 'Tasks Assigned', 'Tasks Completed', 'Videos Watched', 'Certificate Eligibility', 'Required tasks remain.']) assert.ok(overview.includes(label), label)
     assert.match(overview, /<progress max="100" value="50"/)
     assert.ok(overview.includes('No pending deadlines.'))
@@ -70,7 +74,7 @@ test('learning UI exposes real progress, private student routes, admin modules, 
       }
       assert.equal((await adminFetch('/learning/batches', { method: 'POST', body: JSON.stringify({ name: 'Test Batch' }) }))._id, 'saved')
     } finally { globalThis.fetch = originalFetch }
-    assert.equal(safeStudentReturnTo('/student/tasks'), '/student/tasks'); assert.equal(safeStudentReturnTo('/student/certificates'), '/student/certificates'); assert.equal(safeStudentReturnTo('/student/tasks/../../admin'), '/student')
+    assert.equal(safeStudentReturnTo('/student/tasks'), '/student/tasks'); assert.equal(safeStudentReturnTo('/student/certificates'), '/student/certificates'); assert.equal(safeStudentReturnTo('/student/tasks/../../admin'), '/student'); assert.equal(safeStudentReturnTo('/internships/Data%20Analyst'), '/internships/Data%20Analyst')
     const css = await readFile(new URL('../src/learning.css', import.meta.url), 'utf8')
     for (const token of ['var(--surface)', 'var(--text)', 'max-width:600px', 'overflow-x:auto', 'prefers-reduced-motion']) assert.ok(css.includes(token))
   } finally { if (previousStorage) Object.defineProperty(globalThis, 'localStorage', previousStorage); else delete globalThis.localStorage; await vite.close() }

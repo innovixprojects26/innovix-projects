@@ -35,8 +35,9 @@ export function StudentSessionProvider({ children }) {
     const timer = setTimeout(refresh, Math.min(Math.max(new Date(state.expiresAt).getTime() - Date.now(), 0), 2147483647))
     return () => clearTimeout(timer)
   }, [state.expiresAt, refresh])
-  const login = async (credentials) => {
-    const data = await studentFetch('/student/login', { method: 'POST', body: JSON.stringify(credentials) })
+  const login = async (credentials, verifyDevice = false) => {
+    const data = await studentFetch(verifyDevice ? '/student/login/verify-device' : '/student/login', { method: 'POST', body: JSON.stringify(credentials) })
+    if (data.requiresOtp) return data
     generation.current++; setState({ ...data, loading: false, error: '' }); channel.current?.postMessage('changed')
     return data
   }

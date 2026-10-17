@@ -1,4 +1,4 @@
-export const contactConfig = {
+﻿export const contactConfig = {
   whatsapp: '918489025879',
   email: 'innovixprojects26@gmail.com',
   phone: '+91 84890 25879',
@@ -12,7 +12,6 @@ export const internshipRoles = [
   'Content Creation',
   'Cyber Security',
   'Full Stack Development',
-  'AI Tools',
 ]
 
 // Live class configuration
@@ -21,7 +20,7 @@ export const internshipRoles = [
 export const liveClasses = [
   {
     name: 'Data Analytics',
-    meetLink: 'https://us05web.zoom.us/j/89360539378?pwd=6wDbAPuaSFqICm28tsaHRWL3OhPfJr.1',
+    meetLink: '',
   },
   {
     name: 'AI & Machine Learning',
@@ -29,7 +28,7 @@ export const liveClasses = [
   },
   {
     name: 'Full Stack Development',
-    meetLink: 'https://us05web.zoom.us/j/6534770300?pwd=BOCaVrasZ37ni1xGynHRXqW82CwIbY.1',
+    meetLink: '',
   },
   {
     name: 'Frontend Developer',
@@ -45,11 +44,11 @@ export const liveClasses = [
   },
   {
     name: 'Content Creation',
-    meetLink: 'https://us05web.zoom.us/j/6534770300?pwd=BOCaVrasZ37ni1xGynHRXqW82CwIbY.1',
+    meetLink: '',
   },
   {
     name: 'Cyber Security',
-    meetLink: 'https://us05web.zoom.us/j/86814147367?pwd=EuD99Tg80i6ANPKjKQAPz8aD0UHfBd.1',
+    meetLink: '',
   },
 ]
 
@@ -57,15 +56,15 @@ const image = (id) =>
   `https://images.unsplash.com/${id}?auto=format&fit=crop&w=900&q=80`
 
 export const domains = [
-  { name: 'AI & Machine Learning', icon: '✦', tone: 'mint', count: 18 },
-  { name: 'Full Stack Development', icon: '↗', tone: 'coral', count: 24 },
-  { name: 'Python', icon: '⌘', tone: 'sun', count: 16 },
-  { name: 'Data Science', icon: '◌', tone: 'sky', count: 14 },
-  { name: 'Cyber Security', icon: '◈', tone: 'ink', count: 11 },
-  { name: 'Cloud Computing', icon: '☁', tone: 'lavender', count: 9 },
-  { name: 'IoT', icon: '⌁', tone: 'mint', count: 8 },
-  { name: 'Mobile Applications', icon: '▣', tone: 'coral', count: 12 },
-  { name: 'Java', icon: '◇', tone: 'sun', count: 10 },
+  { name: 'AI & Machine Learning', icon: 'âœ¦', tone: 'mint', count: 18 },
+  { name: 'Full Stack Development', icon: 'â†—', tone: 'coral', count: 24 },
+  { name: 'Python', icon: 'âŒ˜', tone: 'sun', count: 16 },
+  { name: 'Data Science', icon: 'â—Œ', tone: 'sky', count: 14 },
+  { name: 'Cyber Security', icon: 'â—ˆ', tone: 'ink', count: 11 },
+  { name: 'Cloud Computing', icon: 'â˜', tone: 'lavender', count: 9 },
+  { name: 'IoT', icon: 'âŒ', tone: 'mint', count: 8 },
+  { name: 'Mobile Applications', icon: 'â–£', tone: 'coral', count: 12 },
+  { name: 'Java', icon: 'â—‡', tone: 'sun', count: 10 },
 ]
 
 export const projects = [

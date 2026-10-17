@@ -1,6 +1,13 @@
+import { normalizeInternshipDomain } from '../shared/internship-domain.js'
 import { API_BASE } from './api'
 
 export function safeStudentReturnTo(value) {
+  if (typeof value === 'string' && value.startsWith('/internships/') && !value.includes('\\')) {
+    try {
+      const url = new URL(value, 'http://localhost')
+      if (url.origin === 'http://localhost' && normalizeInternshipDomain(decodeURIComponent(url.pathname.slice('/internships/'.length)))) return url.pathname + url.search + url.hash
+    } catch { /* Fall back to the dashboard. */ }
+  }
   return typeof value === 'string' && /^\/student(?:\/(?:internship|recorded-classes|tasks|certificates))?(?:[?#].*)?$/.test(value) ? value : '/student'
 }
 export async function studentFetch(path, options = {}) {

@@ -1,7 +1,8 @@
+import { liveClasses } from '../config/live-classes.js'
 import { learningSettings } from '../../shared/learning.js'
 import { normalizeInternshipDomain, sameInternshipDomain } from '../../shared/internship-domain.js'
 import mongoose from 'mongoose'
-import { contactConfig, liveClasses, internshipRoles } from '../../src/data.js'
+import { contactConfig, internshipRoles } from '../../src/data.js'
 
 const { Schema, model } = mongoose
 export const settingDefaults = { internshipPaymentsEnabled: false, ...learningSettings, newsEnabled: true, internshipsEnabled: true, discoverEnabled: true, discoverImportEnabled: false, discoverPublishingMode: 'manual', projectsEnabled: true, projectEnquiriesEnabled: true, customRequestsEnabled: true, internshipApplicationsEnabled: true, techNewsEnabled: true, testimonialsEnabled: true, contactEnabled: true, supportEmail: contactConfig.email, supportPhone: contactConfig.phone, whatsapp: contactConfig.whatsapp, instagramUrl: 'https://instagram.com', youtubeUrl: '', linkedinUrl: 'https://linkedin.com' }

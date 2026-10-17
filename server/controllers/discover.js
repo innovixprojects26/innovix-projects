@@ -80,11 +80,43 @@ export async function deleteItem(req, res) {
   await DiscoverRead.deleteMany({ item: item._id })
   return respond(res, { deleted: true })
 }
-export async function sources(_req, res) { return respond(res, await DiscoverSource.find().sort({ name: 1 }).select('-lease -lockedUntil').lean()) }
+export async function sources(_req, res) { const items = await DiscoverSource.find().sort({ name: 1 }).select('-lease -lockedUntil').lean(); return respond(res, items.map(item => ({ ...permissionDefaults, ...item }))) }
+const permissionDefaults = { licenseType: '', licenseUrl: '', attributionRequirements: '', commercialReuseAllowed: null, permissionVerifiedAt: null, permissionNotes: '' }
+function exportUrl(value) {
+  try { const url = new URL(value); if (!['https:', 'http:'].includes(url.protocol)) return ''; url.username = ''; url.password = ''; url.search = ''; url.hash = ''; return url.href } catch { return '' }
+}
+function exportText(value) {
+  return String(value || '').replace(/https?:\/\/[^\s]+/g, exportUrl)
+    .replace(/\b(Bearer)\s+\S+/gi, '$1 [REDACTED]')
+    .replace(/\b(password|secret|token|api[_ -]?key|authorization)\s*[:=]\s*[^\s,;]+/gi, '$1=[REDACTED]')
+}
+export async function exportSources(_req, res) {
+  const records = await DiscoverSource.find().sort({ name: 1 }).select('name url active licenseType licenseUrl attributionRequirements commercialReuseAllowed permissionVerifiedAt permissionNotes').lean()
+  return respond(res, records.map(item => ({ name: exportText(item.name), url: exportUrl(item.url), enabled: item.active === true,
+    licenseType: exportText(item.licenseType), licenseUrl: exportUrl(item.licenseUrl),
+    attributionRequirements: exportText(item.attributionRequirements), commercialReuseAllowed: item.commercialReuseAllowed ?? null,
+    permissionVerifiedAt: item.permissionVerifiedAt ?? null, permissionNotes: exportText(item.permissionNotes),
+  })))
+}
 export async function saveSource(req, res) {
   const source = req.params.id ? await DiscoverSource.findById(req.params.id) : new DiscoverSource()
   if (!source) return fail(res, 'Source not found', 404)
   const body = req.body || {}
+  for (const [key, max] of Object.entries({ licenseType: 200, licenseUrl: 2000, attributionRequirements: 2000, permissionNotes: 4000 })) if (key in body) {
+    if (typeof body[key] !== 'string' || body[key].length > max) return fail(res, `Invalid ${key}.`)
+    if (key === 'licenseUrl' && body[key]) { try { safeSourceUrl(body[key]) } catch { return fail(res, 'License URL must be public HTTPS without credentials.') } }
+    source.set(key, body[key].trim())
+  }
+  if ('commercialReuseAllowed' in body) {
+    if (body.commercialReuseAllowed !== null && typeof body.commercialReuseAllowed !== 'boolean') return fail(res, 'Choose unknown, allowed or restricted.')
+    source.commercialReuseAllowed = body.commercialReuseAllowed
+  }
+  if ('permissionVerifiedAt' in body) {
+    const date = body.permissionVerifiedAt
+    if (date !== null && (typeof date !== 'string' || !Number.isFinite(Date.parse(date)) || Date.parse(date) > Date.now())) return fail(res, 'Enter a valid past verification date or leave unverified.')
+    source.permissionVerifiedAt = date
+  }
+  if ('url' in body && body.url !== source.url) { source.permissionVerifiedAt = null; source.commercialReuseAllowed = null }
   if ('url' in body) source.url = await validateSourceUrl(body.url)
   if ('name' in body) { if (typeof body.name !== 'string') return fail(res, 'Enter a source name.'); source.name = plainText(body.name, 120) }
   if ('type' in body) { if (!['RSS', 'ATOM', 'JSON_FEED'].includes(body.type)) return fail(res, 'Choose RSS, Atom or JSON Feed.'); source.type = body.type }
@@ -101,7 +133,7 @@ export async function saveSource(req, res) {
   return respond(res, source.toObject({ useProjection: true }), req.params.id ? 200 : 201)
 }
 export async function deleteSource(req, res) { const item = await DiscoverSource.findByIdAndDelete(req.params.id); return item ? respond(res, { deleted: true, note: 'Previously imported content is retained for review.' }) : fail(res, 'Source not found', 404) }
-export async function categories(_req, res) { await ensureDiscoverCategories(); return respond(res, await DiscoverCategory.find().sort({ name: 1 }).lean()) }
+export async function categories(_req, res) { if (process.env.RUN_STARTUP_INITIALIZATION === 'true') await ensureDiscoverCategories(); return respond(res, await DiscoverCategory.find().sort({ name: 1 }).lean()) }
 export async function saveCategory(req, res) {
   const item = req.params.id ? await DiscoverCategory.findById(req.params.id) : new DiscoverCategory()
   if (!item) return fail(res, 'Category not found', 404)

@@ -1,5 +1,5 @@
 import { learningStages } from '../services/learning-stages.js'
-import { normalizeInternshipDomain } from '../../shared/internship-domain.js'
+import { normalizeInternshipDomain, sameInternshipDomain } from '../../shared/internship-domain.js'
 import { InternshipTask, InternshipBatch, TaskSubmission, LearningFile } from '../models/learning.js'
 import { Student } from '../models/student.js'
 import { getDomain } from '../models/management.js'
@@ -25,7 +25,8 @@ export async function saveTask(req, res) {
   if (value.maximumMarks !== undefined && value.maximumMarks !== null && value.maximumMarks !== '' && (!Number.isFinite(value.maximumMarks) || value.maximumMarks < 1 || value.maximumMarks > 10000)) throw problem('Enter valid maximum marks.')
   if (typeof value.required !== 'boolean' || !Array.isArray(value.methods) || !value.methods.length || value.methods.some(method => !submissionMethods.includes(method)) || !validateUrl(value.referenceUrl)) throw problem('Choose submission methods, a valid reference URL and required state.')
   if (value.scope === 'Batch' && (!id(value.batch) || !await InternshipBatch.exists({ _id: value.batch, domain: value.domain, ...(item.isNew || String(item.batch) !== String(value.batch) ? { status: { $in: ['Upcoming', 'Active'] } } : {}) }))) throw problem('Choose an upcoming or active batch in the task domain.')
-  if (value.scope === 'Student' && (!id(value.student) || !await Student.exists({ _id: value.student, internshipDomain: value.domain }))) throw problem('Choose a student in the task domain.')
+  const assignedStudent = value.scope === 'Student' && id(value.student) ? await Student.findById(value.student).select('internshipDomain').lean() : null
+  if (value.scope === 'Student' && (!assignedStudent || !sameInternshipDomain(assignedStudent.internshipDomain, value.domain))) throw problem('Choose a student in the task domain.')
   if (!item.isNew && await TaskSubmission.exists({ task: item._id }) && ['stage', 'domain', 'scope', 'batch', 'student'].some(key => String(value[key] || '') !== String(item[key] || ''))) throw problem('The audience of a task with submissions cannot change.', 409)
   item.set(Object.fromEntries(fields.map(key => [key, value[key]])))
   item.batch = value.scope === 'Batch' ? value.batch : undefined; item.student = value.scope === 'Student' ? value.student : undefined

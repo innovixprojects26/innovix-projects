@@ -2,6 +2,7 @@ import { createHash, createHmac, timingSafeEqual } from 'node:crypto'
 import { Student, StudentSession } from '../models/student.js'
 import { env } from '../config/env.js'
 import { fail } from '../utils/api.js'
+import { isStudentOrigin } from '../config/student-origin.js'
 
 export const hashToken = (token) => createHash('sha256').update(token).digest('hex')
 export function studentCookieOptions() {
@@ -18,8 +19,7 @@ export function readStudentToken(req) {
 }
 export const csrfFor = (token) => createHmac('sha256', env.jwtSecret).update(`student-csrf:${token}`).digest('hex')
 export function checkStudentOrigin(req, res, next) {
-  const allowedOrigin = new URL(env.clientUrl).origin
-  if (req.headers.origin !== allowedOrigin) return fail(res, 'This request did not come from the configured student website.', 403)
+  if (!isStudentOrigin(req.headers.origin)) return fail(res, 'This request did not come from the configured student website.', 403)
   if (!req.is('application/json')) return fail(res, 'Use an application/json request.', 415)
   next()
 }
@@ -28,8 +28,8 @@ export async function loadStudentSession(req) {
   if (!token) return null
   const session = await StudentSession.findOne({ tokenHash: hashToken(token), expiresAt: { $gt: new Date() } }).lean()
   if (!session) return null
-  const student = await Student.findById(session.student).select('+authVersion')
-  if (!student || student.accountStatus !== 'active' || student.authVersion !== session.authVersion) return null
+  const student = await Student.findById(session.student).select('+authVersion +activeSessionHash')
+  if (!student || student.accountStatus !== 'active' || student.authVersion !== session.authVersion || student.activeSessionHash !== session.tokenHash) return null
   req.student = student
   req.studentSession = session
   req.studentToken = token

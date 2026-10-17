@@ -96,7 +96,7 @@ export async function ingestSource(id, { fetcher = fetchSource, now = new Date()
 }
 export async function refreshDiscoverSources(options = {}) {
   if (!(await getConfig()).settings.discoverImportEnabled) return { disabled: true, results: [] }
-  await ensureDiscoverCategories()
+  if (options.initializeCategories !== false) await ensureDiscoverCategories()
   const now = new Date()
   const sources = await DiscoverSource.find({ active: true, $or: [{ nextFetchAt: null }, { nextFetchAt: { $lte: now } }] }).sort({ lastFetchedAt: 1 }).limit(10).select('_id name').lean()
   const results = []

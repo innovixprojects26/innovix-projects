@@ -5,9 +5,10 @@ import { WebsiteConfig, InternshipDomain, Announcement, AdminActivity, getConfig
 import { Student, StudentSession, studentDto } from '../models/student.js'
 import { Admin } from '../models/index.js'
 import { fail, respond, validateEmail, validateUrl } from '../utils/api.js'
+import { studentDomains } from '../../shared/student.js'
 
 export async function publicConfiguration(_req, res) {
-  await ensureDomains()
+  if (process.env.RUN_STARTUP_INITIALIZATION === 'true') await ensureDomains()
 
   const now = new Date()
 
@@ -15,7 +16,8 @@ export async function publicConfiguration(_req, res) {
     getConfig(),
 
     InternshipDomain.find({
-      active: true
+      active: true,
+      name: { $in: studentDomains }
     }).lean(),
 
     Announcement.find({
@@ -53,10 +55,8 @@ export async function publicConfiguration(_req, res) {
       ...item,
       enrollmentCount: indicators[normalizeInternshipDomain(item.name)]?.enrollmentCount ?? 0,
 
-      // Send meeting URL for all domains where live class is enabled
-      meetingUrl: item.liveClassEnabled
-        ? item.meetingUrl
-        : ''
+      // Meeting URLs are returned only by the authorized student dashboard.
+      meetingUrl: ''
     })),
 
     announcements
@@ -87,10 +87,10 @@ export async function saveConfig(req, res) {
   }
   return respond(res, await getConfig())
 }
-export async function listDomains(_req, res) { await ensureDomains(); return respond(res, await InternshipDomain.find().sort({ name: 1 }).lean()) }
+export async function listDomains(_req, res) { if (process.env.RUN_STARTUP_INITIALIZATION === 'true') await ensureDomains(); return respond(res, await InternshipDomain.find({ name: { $in: studentDomains } }).sort({ name: 1 }).lean()) }
 export async function updateDomain(req, res) {
   const item = await InternshipDomain.findById(req.params.id)
-  if (!item) return fail(res, 'Internship not found', 404)
+  if (!item || !studentDomains.includes(item.name)) return fail(res, 'Internship not found', 404)
   if ('price' in req.body) {
     if (typeof req.body.price !== 'number' || !Number.isFinite(req.body.price) || req.body.price < 0 || req.body.price > 1000000 || Math.abs(Math.round(req.body.price * 100) - req.body.price * 100) > 0.000001) return fail(res, 'Enter a valid internship price with at most two decimal places.')
     item.price = req.body.price

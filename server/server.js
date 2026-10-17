@@ -4,6 +4,7 @@ import { discoverStudentRoutes, discoverAdminRoutes } from './routes/discover.js
 import { ensureDiscoverCategories } from './models/discover.js'
 import { ensureDomains } from './models/management.js'
 import express from 'express'
+import mongoose from 'mongoose'
 import cors from 'cors'
 import helmet from 'helmet'
 import rateLimit from 'express-rate-limit'
@@ -18,7 +19,9 @@ import adminRoutes from './routes/admin.js'
 import { contentVideoAdminRoutes, contentVideoPublicRoutes } from './routes/content-videos.js'
 import studentRoutes from './routes/student.js'
 import { studentCookieOptions } from './middleware/student-auth.js'
+import { isStudentOrigin } from './config/student-origin.js'
 import { createApiLimiters } from './middleware/api-limits.js'
+import razorpayWebhookRoutes from './routes/razorpay-webhook.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -33,15 +36,13 @@ const allowedOrigins = new Set([
   env.clientUrl.replace(/\/$/, ''),
   'https://innovixprojects.sempraxis.com',
   'https://innovixprojects.sempraxis.com/',
-  'http://localhost:5173',
-  'http://127.0.0.1:5173',
 ])
 app.use(cors({
   origin(origin, callback) {
     if (!origin) return callback(null, true)
     try {
       const normalized = new URL(origin).origin
-      if (allowedOrigins.has(origin) || allowedOrigins.has(normalized)) return callback(null, true)
+      if (isStudentOrigin(origin) || allowedOrigins.has(origin) || allowedOrigins.has(normalized)) return callback(null, true)
     } catch {
       return callback(new Error('Invalid origin'))
     }
@@ -49,10 +50,11 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token', 'X-File-Extension'],
 }))
+app.use('/api/webhooks/razorpay', razorpayWebhookRoutes)
 app.use(express.json({ limit: '1mb' }))
-app.get('/api/health', (_req, res) => res.json({ success: true, data: { service: 'innovix-api', database: Boolean(env.mongoUri) } }))
+app.get('/api/health', (_req, res) => res.json({ success: true, data: { service: 'innovix-api', database: mongoose.connection.readyState === 1 } }))
 app.use('/api/admin/login', rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: 'draft-7', legacyHeaders: false }))
 app.use('/api', ...createApiLimiters())
 app.use('/api/student/learning', learningStudentRoutes)
@@ -89,10 +91,14 @@ async function start() {
   validateRequiredEnv({ requireMongo: true, requireAdmin: true })
   studentCookieOptions()
   await connectDatabase()
-  await ensureAdmin()
-  await ensureDomains()
-  await ensureDiscoverCategories()
-  await initializeLearningModels()
+  if (process.env.RUN_STARTUP_INITIALIZATION === 'true') {
+    await ensureAdmin()
+    await ensureDomains()
+    await ensureDiscoverCategories()
+    await initializeLearningModels()
+  } else {
+    console.log('Startup initialization skipped')
+  }
   server = app.listen(env.port, () => console.log(`Innovix API listening on port ${env.port}`))
 }
 start().catch((error) => { console.error('Server startup failed:', error.message); process.exitCode = 1 })

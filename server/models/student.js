@@ -14,10 +14,16 @@ const schema = new mongoose.Schema({
   leaderboardExcluded: { type: Boolean, default: false },
   accountStatus: { type: String, enum: ['active', 'suspended'], default: 'active' },
   authVersion: { type: Number, default: 0, select: false },
+  activeSessionHash: { type: String, select: false },
+  trustedDeviceHash: { type: String, select: false },
+  loginChallenge: { type: new mongoose.Schema({
+    id: String, codeHash: String, deviceHash: String, expiresAt: Date,
+    attempts: { type: Number, default: 0 }, rememberMe: Boolean, authVersion: Number,
+  }, { _id: false }), select: false },
   resetTokenHash: { type: String, select: false },
   resetExpiresAt: { type: Date, select: false },
 }, { timestamps: true })
-schema.set('toJSON', { transform: (_document, value) => { for (const field of ['passwordHash', 'authVersion', 'resetTokenHash', 'resetExpiresAt', '__v']) delete value[field]; return value } })
+schema.set('toJSON', { transform: (_document, value) => { for (const field of ['passwordHash', 'authVersion', 'activeSessionHash', 'trustedDeviceHash', 'loginChallenge', 'resetTokenHash', 'resetExpiresAt', '__v']) delete value[field]; return value } })
 export const Student = mongoose.model('Student', schema)
 
 const sessionSchema = new mongoose.Schema({

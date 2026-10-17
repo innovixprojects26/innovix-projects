@@ -1,5 +1,5 @@
 import mongoose from 'mongoose'
-import { sameInternshipDomain } from '../../shared/internship-domain.js'
+import { normalizeInternshipDomain, sameInternshipDomain } from '../../shared/internship-domain.js'
 import { InternshipBatch, BatchEnrollment, InternshipTask } from '../models/learning.js'
 import { Student } from '../models/student.js'
 import { ContentVideo } from '../models/content-video.js'
@@ -19,6 +19,11 @@ export async function saveBatch(req, res) {
   const fields = ['name', 'domain', 'code', 'startDate', 'endDate', 'duration', 'mentor', 'description', 'maxStudents', 'applicationDeadline', 'status', 'enabled', 'requiredVideos']
   const value = { ...current.toObject(), ...Object.fromEntries(fields.filter(key => key in req.body).map(key => [key, req.body[key]])) }
   if (!['name', 'domain', 'code', 'mentor'].every(key => typeof value[key] === 'string' && value[key].trim())) throw problem('Enter a batch name, domain, code and mentor.')
+  if (current.isNew || 'domain' in req.body) {
+    const normalizedDomain = normalizeInternshipDomain(value.domain)
+    if (!normalizedDomain) throw problem('Choose a valid internship domain.')
+    value.domain = !current.isNew && sameInternshipDomain(current.domain, normalizedDomain) ? current.domain : normalizedDomain
+  }
   if (!/^[A-Za-z0-9_-]{3,40}$/.test(value.code)) throw problem('Use 3–40 letters, numbers, hyphens or underscores for the batch code.')
   if (!(await getDomain(value.domain))?.active) throw problem('Choose an active internship domain.')
   if (!Number.isInteger(value.maxStudents) || value.maxStudents < Math.max(1, current.enrollmentCount || 0) || value.maxStudents > 10000) throw problem('Capacity must accommodate enrolled students (1–10000).')
@@ -66,13 +71,13 @@ export async function assignStudent(req, res) {
   await mongoose.connection.transaction(async session => {
     const batch = await InternshipBatch.findById(req.params.id).session(session)
     if (!batch || !batch.enabled || !['Upcoming', 'Active'].includes(batch.status)) throw problem('Choose an enabled upcoming or active batch.')
-    if (batch.domain !== student.internshipDomain) throw problem('The batch must match the student’s internship domain.')
+    if (!sameInternshipDomain(batch.domain, student.internshipDomain)) throw problem('The batch must match the student’s internship domain.')
     let application
     if (req.body.applicationId) {
       if (!id(req.body.applicationId)) throw problem('Invalid application.')
-      application = await InternshipApplication.findOne({ _id: req.body.applicationId, email: student.email, domain: batch.domain, status: { $in: ['Approved', 'Joined'] } }).session(session)
+      application = (await InternshipApplication.find({ _id: req.body.applicationId, email: student.email, status: { $in: ['Approved', 'Joined'] } }).session(session)).find(item => sameInternshipDomain(item.domain, batch.domain))
       if (!application) throw problem('Select an approved application belonging to this student and domain.')
-    } else if (await InternshipApplication.exists({ email: student.email, domain: batch.domain, status: { $nin: ['Approved', 'Joined', 'Completed'] } }).session(session)) {
+    } else if ((await InternshipApplication.find({ email: student.email, status: { $nin: ['Approved', 'Joined', 'Completed'] } }).select('domain').session(session)).some(item => sameInternshipDomain(item.domain, batch.domain))) {
       throw problem('Approve the Student’s existing internship application before enrolling them.')
     }
     const previous = await BatchEnrollment.findOne({ student: student._id, status: 'Enrolled' }).session(session)

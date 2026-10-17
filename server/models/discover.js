@@ -6,6 +6,12 @@ const { Schema, model } = mongoose
 export const DiscoverCategory = model('DiscoverCategory', new Schema({ name: { type: String, required: true, unique: true, maxlength: 80 }, domains: [{ type: String, enum: discoverDomains }], keywords: [String], active: { type: Boolean, default: true } }, { timestamps: true }))
 export const DiscoverSource = model('DiscoverSource', new Schema({
   name: { type: String, required: true, maxlength: 120 }, url: { type: String, required: true, unique: true }, type: { type: String, enum: ['RSS', 'ATOM', 'JSON_FEED'], required: true }, categories: [String], domains: [{ type: String, enum: discoverDomains }], active: { type: Boolean, default: false },
+  licenseType: { type: String, default: '', maxlength: 200 },
+  licenseUrl: { type: String, default: '', maxlength: 2000 },
+  attributionRequirements: { type: String, default: '', maxlength: 2000 },
+  commercialReuseAllowed: { type: Boolean, default: null },
+  permissionVerifiedAt: { type: Date, default: null },
+  permissionNotes: { type: String, default: '', maxlength: 4000 },
   lastFetchedAt: Date, fetchStatus: { type: String, default: 'Never fetched' }, fetchError: { type: String, default: '' }, nextFetchAt: Date, lockedUntil: Date, lease: { type: String, select: false },
 }, { timestamps: true }))
 const itemSchema = new Schema({

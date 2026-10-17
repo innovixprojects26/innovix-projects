@@ -1,4 +1,5 @@
 import { studentDomains } from '../../shared/student.js'
+import { normalizeInternshipDomain } from '../../shared/internship-domain.js'
 import { VideoProgress } from '../models/learning.js'
 import { recordingEnabled } from '../models/management.js'
 import mongoose from 'mongoose'
@@ -25,7 +26,7 @@ export function videoDto(item, includeSource = false) {
   return { _id: item._id, required: item.required !== false, domain: item.domain || 'Content Creation', title: item.title, module: item.module, description: item.description, publishDate: item.publishDate, status: item.status, duration: item.duration, position: item.position, hasVideo: Boolean(item.videoFile || item.videoUrl), hasUpload: Boolean(item.videoFile), hasThumbnail: Boolean(item.thumbnailFile), ...(includeSource ? { videoUrl: item.videoUrl || '' } : {}) }
 }
 export async function listContentVideos(req, res) {
-  const domain = req.student.internshipDomain
+  const domain = normalizeInternshipDomain(req.student.internshipDomain)
   if (!videoDomains.has(domain)) return fail(res, 'Recorded classes are not available for your domain.', 403)
   if (!await studentHasDomainAccess(req.student)) return fail(res, 'Internship enrollment is required to access recorded classes.', 403)
   if (!await recordingEnabled(domain)) return fail(res, 'Recorded classes are currently unavailable.', 403)
@@ -139,6 +140,7 @@ export async function previewContentVideo(req, res) {
 }
 
 export async function streamContentMedia(req, res, next) {
+  let domain = ''
   if (!mongoose.isObjectIdOrHexString(req.params.id) || !['video', 'thumbnail'].includes(req.params.kind)) return fail(res, 'Video not found', 404)
   let preview = false
   if (typeof req.query.preview === 'string') {
@@ -149,19 +151,20 @@ export async function streamContentMedia(req, res, next) {
   }
   if (!preview) {
     if (!await loadStudentSession(req)) return fail(res, 'Please log in to watch recorded classes.', 401)
-    if (!videoDomains.has(req.student.internshipDomain)) return fail(res, 'These recorded classes are not available for your domain.', 403)
+    domain = normalizeInternshipDomain(req.student.internshipDomain)
+    if (!videoDomains.has(domain)) return fail(res, 'These recorded classes are not available for your domain.', 403)
     if (!await studentHasDomainAccess(req.student)) return fail(res, 'Internship enrollment is required to access recorded classes.', 403)
-    if (!await recordingEnabled(req.student.internshipDomain)) return fail(res, 'Recorded classes are currently unavailable.', 403)
+    if (!await recordingEnabled(domain)) return fail(res, 'Recorded classes are currently unavailable.', 403)
   }
   const item = await ContentVideo.findOne({
     _id: req.params.id,
-    ...(preview ? {} : visible(req.student.internshipDomain)),
+    ...(preview ? {} : visible(domain)),
   }).lean()
-  if (!preview && item && (item.domain || 'Content Creation') !== req.student.internshipDomain) return fail(res, 'These recorded classes are for another internship domain.', 403)
+  if (!preview && item && (item.domain || 'Content Creation') !== domain) return fail(res, 'These recorded classes are for another internship domain.', 403)
   const filename = item?.[req.params.kind === 'thumbnail' ? 'thumbnailFile' : 'videoFile']
   const videoUrl = req.params.kind === 'video' ? item?.videoUrl : ''
   if (!filename && !videoUrl) return fail(res, 'Media not found', 404)
-  if (!preview && req.params.kind === 'video' && sequenceLocked(await videoSequence(req.student, req.student.internshipDomain), item._id)) return fail(res, 'Complete the previous lesson before watching this video.', 403)
+  if (!preview && req.params.kind === 'video' && sequenceLocked(await videoSequence(req.student, domain), item._id)) return fail(res, 'Complete the previous lesson before watching this video.', 403)
   if (videoUrl && !filename) {
     res.set({ 'Cache-Control': 'private, no-store', 'Referrer-Policy': 'no-referrer' })
     return res.redirect(302, videoUrl)

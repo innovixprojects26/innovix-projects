@@ -5,6 +5,7 @@ import { PhoneField } from './PhoneField'
 import { useStudentSession } from './student-session-context'
 import { safeStudentReturnTo, studentFetch } from './student-api'
 import { passwordError, passwordHint, studentDomains, studyYears } from '../shared/student'
+import { internshipDisplayName } from './approved-internships.js'
 import { normalizePhone } from '../shared/phone'
 import { assessStudentPassword, passwordMinLength, passwordMaxLength } from '../shared/student-password'
 
@@ -29,6 +30,7 @@ function AuthFrame({ title, eyebrow, subtitle, children }) {
 function Feedback({ error, notice }) { return <>{error && <p className="student-error" role="alert">{error}</p>}{notice && <p className="student-notice" role="status">{notice}</p>}</> }
 
 export function StudentLogin() {
+  const [challenge, setChallenge] = useState(null)
   const session = useStudentSession()
   const location = useLocation()
   const navigate = useNavigate()
@@ -40,10 +42,11 @@ export function StudentLogin() {
     event.preventDefault(); if (busy) return
     const values = Object.fromEntries(new FormData(event.currentTarget))
     setBusy(true); setError('')
-    try { await session.login({ email: values.email, password: values.password, rememberMe: values.rememberMe === 'on' }); navigate(returnTo, { replace: true }) }
+    try { const result = await session.login(challenge ? { challengeId: challenge.challengeId, code: values.code } : { email: values.email, password: values.password, rememberMe: values.rememberMe === 'on' }, Boolean(challenge)); if (result.requiresOtp) setChallenge(result); else navigate(returnTo, { replace: true }) }
     catch (err) { setError(err.message) }
     finally { setBusy(false) }
   }
+  if (challenge) return <AuthFrame eyebrow="Student Login" title="Verify your device" subtitle={challenge.message}><Feedback error={error} /><form className="student-auth-form" onSubmit={submit}><label className="student-field">Email verification code<input name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" minLength={6} maxLength={6} required /></label><button className="button button-dark" disabled={busy}>{busy ? 'Verifying...' : 'Verify and log in'}</button><button type="button" className="button button-outline" disabled={busy} onClick={() => { setChallenge(null); setError('') }}>Back to login / request a new code</button></form></AuthFrame>
   return <AuthFrame eyebrow="Student Login" title="Welcome Back" subtitle="Login to continue your learning journey with Innovix Projects."><Feedback error={error} notice={location.state?.notice} /><form className="student-auth-form" onSubmit={submit}><label className="student-field">Email Address<input name="email" type="email" autoComplete="username" required maxLength="254" defaultValue={location.state?.email || ''} /></label><PasswordField /><div className="student-auth-options"><label><input type="checkbox" name="rememberMe" /> Remember Me</label><Link to="/forgot-password">Forgot Password?</Link></div><button className="button button-dark" disabled={busy || session.loading}>{busy ? 'Logging in...' : 'Login'} <ArrowRight size={16} /></button></form><p className="student-auth-switch">New to Innovix Projects? <Link to="/register" state={{ returnTo }}>Create Account →</Link></p></AuthFrame>
 }
 
@@ -69,7 +72,7 @@ export function StudentRegistration() {
     } catch (err) { setError(err.message) }
     finally { setBusy(false) }
   }
-  return <AuthFrame eyebrow="Student Registration" title="Create your account" subtitle="Join the Innovix Projects student learning community."><Feedback error={error} /><form className="student-auth-form student-registration" onSubmit={submit}><div className="student-form-grid"><label className="student-field">Full Name<input name="fullName" autoComplete="name" required maxLength="120" /></label><label className="student-field">Email Address<input name="email" type="email" autoComplete="email" required maxLength="254" /></label><div className="student-form-wide"><PhoneField required /></div><label className="student-field">College / Institution<input name="college" autoComplete="organization" required maxLength="180" /></label><label className="student-field">Department / Course<input name="course" required maxLength="120" /></label><label className="student-field">Year of Study<select name="yearOfStudy" required defaultValue=""><option value="" disabled>Select year</option>{studyYears.map((year) => <option key={year}>{year}</option>)}</select></label><label className="student-field">Internship Domain<select name="internshipDomain" required defaultValue=""><option value="" disabled>Select domain</option>{studentDomains.map((domain) => <option key={domain}>{domain}</option>)}</select></label><NewPasswordFields passwords={passwords} onChange={setPasswords} /></div><p className="student-password-hint">{passwordHint}</p><button className="button button-dark" disabled={busy || Boolean(passwordError(passwords.password, passwords.confirmation))}>{busy ? 'Creating account...' : 'Create Account'} <ArrowRight size={16} /></button></form><p className="student-auth-switch">Already have an account? <Link to="/login" state={{ returnTo }}>Login →</Link></p></AuthFrame>
+  return <AuthFrame eyebrow="Student Registration" title="Create your account" subtitle="Join the Innovix Projects student learning community."><Feedback error={error} /><form className="student-auth-form student-registration" onSubmit={submit}><div className="student-form-grid"><label className="student-field">Full Name<input name="fullName" autoComplete="name" required maxLength="120" /></label><label className="student-field">Email Address<input name="email" type="email" autoComplete="email" required maxLength="254" /></label><div className="student-form-wide"><PhoneField required /></div><label className="student-field">College / Institution<input name="college" autoComplete="organization" required maxLength="180" /></label><label className="student-field">Department / Course<input name="course" required maxLength="120" /></label><label className="student-field">Year of Study<select name="yearOfStudy" required defaultValue=""><option value="" disabled>Select year</option>{studyYears.map((year) => <option key={year}>{year}</option>)}</select></label><label className="student-field">Internship Domain<select name="internshipDomain" required defaultValue=""><option value="" disabled>Select domain</option>{studentDomains.filter(domain => domain !== 'AI Tools').map((domain) => <option key={domain} value={domain}>{internshipDisplayName(domain)}</option>)}</select></label><NewPasswordFields passwords={passwords} onChange={setPasswords} /></div><p className="student-password-hint">{passwordHint}</p><button className="button button-dark" disabled={busy || Boolean(passwordError(passwords.password, passwords.confirmation))}>{busy ? 'Creating account...' : 'Create Account'} <ArrowRight size={16} /></button></form><p className="student-auth-switch">Already have an account? <Link to="/login" state={{ returnTo }}>Login →</Link></p></AuthFrame>
 }
 
 export function StudentForgotPassword() {

@@ -1,3 +1,4 @@
+import { approvedInternshipTracks, internshipDisplayName } from './approved-internships.js'
 import { useRef, useState } from 'react'
 import { ArrowRight } from 'lucide-react'
 import { FormField, Toast } from './components'
@@ -11,7 +12,7 @@ const levels = ['Beginner', 'Some experience', 'Intermediate', 'Advanced']
 
 export function InternshipForm() {
   const { domains, settings } = useSite()
-  const roles = domains.filter(item => item.active && item.applicationsOpen).map(item => item.name)
+  const roles = approvedInternshipTracks(domains).filter(item => item.active && item.applicationsOpen).map(item => item.name)
   const fields = useRef({})
   const formRef = useRef(null)
   const [sending, setSending] = useState(false)
@@ -51,7 +52,7 @@ export function InternshipForm() {
     <div className="form-two"><FormField label="Full name" name="name" required ref={field('name')} onKeyDown={(event) => focusNext(event, 'email')} /><FormField label="Email" name="email" type="email" required ref={field('email')} onKeyDown={(event) => focusNext(event, 'country')} /></div>
     <div className="form-two"><PhoneField required countryRef={field('country')} ref={field('phone')} onCountryKeyDown={(event) => focusNext(event, 'phone')} onPhoneKeyDown={(event) => focusNext(event, 'degreeCourse')} /><FormField label="Degree / Course" name="degreeCourse" placeholder="B.Sc Agriculture, B.Com, Diploma..." required ref={field('degreeCourse')} onKeyDown={(event) => focusNext(event, 'department')} /></div>
     <div className="form-two"><FormField label="Department / Major" name="department" required ref={field('department')} onKeyDown={(event) => focusNext(event, 'college')} /><FormField label="College / University" name="college" required ref={field('college')} onKeyDown={(event) => focusNext(event, 'studyYear')} /></div>
-    <div className="form-two"><FormField label="Current year / Graduation year" name="studyYear" placeholder="2nd year or graduating 2027" required ref={field('studyYear')} onKeyDown={(event) => focusNext(event, 'domain')} /><FormField label="Preferred internship role" name="domain" as="select" required defaultValue="" ref={field('domain')} onKeyDown={(event) => focusNext(event, 'skills')}><option value="" disabled>Select a role</option>{roles.map((role) => <option key={role} value={role}>{role}</option>)}</FormField></div>
+    <div className="form-two"><FormField label="Current year / Graduation year" name="studyYear" placeholder="2nd year or graduating 2027" required ref={field('studyYear')} onKeyDown={(event) => focusNext(event, 'domain')} /><FormField label="Preferred internship role" name="domain" as="select" required defaultValue="" ref={field('domain')} onKeyDown={(event) => focusNext(event, 'skills')}><option value="" disabled>Select a role</option>{roles.map((role) => <option key={role} value={role}>{internshipDisplayName(role)}</option>)}</FormField></div>
     <div className="form-two"><FormField label="Skills" name="skills" placeholder="Writing, research, Python, design..." required ref={field('skills')} onKeyDown={(event) => focusNext(event, 'experienceLevel')} /><FormField label="Experience level" name="experienceLevel" as="select" required defaultValue="" ref={field('experienceLevel')} onKeyDown={(event) => focusNext(event, 'portfolioUrl')}><option value="" disabled>Select your level</option>{levels.map((level) => <option key={level}>{level}</option>)}</FormField></div>
     <div className="form-two"><FormField label="Portfolio URL (optional)" name="portfolioUrl" type="url" ref={field('portfolioUrl')} onKeyDown={(event) => focusNext(event, 'githubUrl')} /><FormField label="GitHub URL (optional)" name="githubUrl" type="url" ref={field('githubUrl')} onKeyDown={(event) => focusNext(event, 'linkedinUrl')} /></div>
     <div className="form-two"><FormField label="LinkedIn URL (optional)" name="linkedinUrl" type="url" ref={field('linkedinUrl')} onKeyDown={(event) => focusNext(event, 'availabilityDate')} /><FormField label="Preferred start date (optional)" name="availabilityDate" type="date" ref={field('availabilityDate')} onKeyDown={(event) => focusNext(event, 'message')} /></div>

@@ -31,3 +31,16 @@ atlas-credentials.env
 *.njsproj
 *.sln
 *.sw?
+
+# Private local data, verification backups and source snapshots
+/private/
+/.internship-domain-backup/
+/ai-tools-*-20*/
+*.bak
+*.backup-*
+*.current-backup
+*.ai-tools-backup
+/*-full.txt
+
+*.backup
+private/

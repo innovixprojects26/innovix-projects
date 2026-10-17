@@ -1,6 +1,14 @@
 import { env } from '../config/env.js'
 
 export function resetEmailConfigured() { return Boolean(process.env.STUDENT_RESET_EMAIL_API_KEY && process.env.STUDENT_RESET_EMAIL_FROM) }
+export async function sendStudentDeviceEmail(email, code) {
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST', signal: AbortSignal.timeout(15000),
+    headers: { Authorization: `Bearer ${process.env.STUDENT_RESET_EMAIL_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from: process.env.STUDENT_RESET_EMAIL_FROM, to: [email], subject: 'Verify your Innovix Projects device', text: `Your new-device login code is ${code}. It expires in 10 minutes. Never share this code. If you did not request this login, do not approve it. Your current device remains signed in.` }),
+  })
+  if (!response.ok) throw new Error('Device verification email delivery failed')
+}
 export async function sendStudentResetEmail(email, token) {
   const link = new URL('/reset-password', env.clientUrl)
   link.hash = `token=${token}`
