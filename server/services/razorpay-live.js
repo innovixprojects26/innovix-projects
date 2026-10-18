@@ -88,3 +88,15 @@ export async function verifiedLivePayment(payment, details) {
 
   return remote.id
 }
+
+// Activation remains an explicit server-side operational decision.
+export function livePaymentAvailability(paymentsEnabled) {
+  const configured = Boolean(process.env.RAZORPAY_KEY_ID?.startsWith('rzp_live_') && process.env.RAZORPAY_KEY_SECRET && process.env.RAZORPAY_WEBHOOK_SECRET)
+  const available = Boolean(paymentsEnabled && configured && process.env.RAZORPAY_LIVE_ENABLED === 'true')
+  return { mode: 'live', available, status: available ? 'ready' : 'blocked',
+    message: available ? 'Online payment verification is configured.' : 'Online internship payments are not activated. Please contact support before paying.' }
+}
+export function requireLiveActivation() {
+  if (process.env.RAZORPAY_LIVE_ENABLED !== 'true' || !process.env.RAZORPAY_WEBHOOK_SECRET) throw problem('LIVE payments are not activated.', 503)
+  liveCredentials()
+}

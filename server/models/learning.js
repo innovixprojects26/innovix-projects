@@ -9,12 +9,14 @@ const enrollment = new Schema({ student: ref('Student', true), batch: ref('Inter
 enrollment.add({ domain: String, month: Number, year: Number, enrolledAt: Date, learningAccessStatus: { type: String, enum: ['LOCKED', 'UNLOCKED'] }, paymentMode: { type: String, enum: ['test', 'live'] } })
 enrollment.add({ testPayment: { type: new Schema({ status: { type: String, enum: ['Creating', 'Pending', 'Paid'] }, amount: Number, currency: { type: String, enum: ['INR'] }, orderId: String, paymentId: String, verifiedAt: Date }, { _id: false }), default: undefined } })
 enrollment.add({ livePayment: { type: new Schema({
-  status: { type: String, enum: ['Creating', 'Pending', 'Paid', 'Failed'] },
+  status: { type: String, enum: ['Creating', 'Pending', 'Paid', 'Failed', 'PartiallyRefunded', 'Refunded'] },
   amount: { type: Number, min: 100 },
   currency: { type: String, enum: ['INR'] },
   orderId: String,
   paymentId: String,
-  verifiedAt: Date
+  verifiedAt: Date,
+  amountRefunded: { type: Number, min: 0 },
+  reconciledAt: Date
 }, { _id: false }), default: undefined } })
 enrollment.index({ student: 1, status: 1 }, { unique: true, partialFilterExpression: { status: 'Enrolled' } })
 enrollment.index({ student: 1, batch: 1, createdAt: -1 })

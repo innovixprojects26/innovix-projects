@@ -1,4 +1,4 @@
-﻿
+
 import { Router } from 'express'
 import rateLimit from 'express-rate-limit'
 import { requireAuth } from '../middleware/auth.js'
@@ -110,6 +110,10 @@ learningStudentRoutes.post(
   payments.localTestOnly,
   payments.verify
 )
+
+learningStudentRoutes.get('/payments/live/status', livePayments.liveStatus)
+learningStudentRoutes.get('/payments/live/recovery-status', paymentLimit, livePayments.liveRecoveryStatus)
+learningStudentRoutes.post('/payments/live/recover', ...studentWrite, paymentLimit, livePayments.recoverLiveOrder)
 
 learningStudentRoutes.post('/payments/live/order', ...studentWrite, paymentLimit, livePayments.createLiveOrder)
 learningStudentRoutes.post('/payments/live/verify', ...studentWrite, paymentLimit, livePayments.verifyLiveOrder)

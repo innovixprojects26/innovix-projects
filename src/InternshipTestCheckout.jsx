@@ -91,7 +91,9 @@ function Checkout({ session, domain }) {
     )
 
   const eligible =
+    import.meta.env.DEV &&
     local &&
+    new URLSearchParams(location.search).get('paymentMode') === 'test' &&
     student &&
     !sameInternshipDomain(student.internshipDomain, 'AI Tools') &&
     (!domain ||
@@ -400,7 +402,7 @@ function Checkout({ session, domain }) {
       <p>
         <strong>
           TEST MODE — no real charge.
-          LIVE payments remain disabled.
+          This checkout uses test payments only.
         </strong>
       </p>
 

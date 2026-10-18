@@ -208,7 +208,7 @@ export function StudentDashboard({ internshipOnly = false }) {
               Learning payment:{' '}
               <strong>
                 {data.paymentVerified
-                  ? 'TEST Payment Verified'
+                  ? 'Payment Verified'
                   : 'Payment Pending'}
               </strong>
             </p>
@@ -504,7 +504,7 @@ export function StudentRecordedClasses() {
         <>
           <p>
             Payment Pending. Complete your internship
-            TEST payment to access recorded classes.
+            verified payment to access recorded classes.
           </p>
 
           <Link

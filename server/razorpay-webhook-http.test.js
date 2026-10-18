@@ -3,9 +3,15 @@ import assert from 'node:assert/strict'
 import { createHmac } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import express from 'express'
-import webhook from './routes/razorpay-webhook.js'
+import { createWebhookRouter } from './routes/razorpay-webhook.js'
 
 test('isolated webhook HTTP validation and raw-body middleware ordering', async t => {
+  const receipts = new Set()
+  const previousEnabled = process.env.RAZORPAY_LIVE_ENABLED
+  process.env.RAZORPAY_LIVE_ENABLED = 'true'
+  const webhook = createWebhookRouter(async eventId => {
+    const duplicate = receipts.has(eventId); receipts.add(eventId); return { duplicate }
+  })
   const previous = process.env.RAZORPAY_WEBHOOK_SECRET
   const secret = 'isolated-webhook-http-secret'
   process.env.RAZORPAY_WEBHOOK_SECRET = secret
@@ -19,18 +25,20 @@ test('isolated webhook HTTP validation and raw-body middleware ordering', async 
   const sign = body => createHmac('sha256', secret).update(body).digest('hex')
   const body = JSON.stringify({ entity: 'event', event: 'payment.captured', payload: { payment: { entity: { entity: 'payment', id: 'pay_fixture123' } } } }, null, 2)
   const send = async (raw, signature = sign(raw), extraHeaders = {}) => {
-    const response = await fetch(`${base}/api/webhooks/razorpay`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(signature === null ? {} : { 'X-Razorpay-Signature': signature }), ...extraHeaders }, body: raw })
+    const response = await fetch(`${base}/api/webhooks/razorpay`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Razorpay-Event-Id': 'event_fixture', ...(signature === null ? {} : { 'X-Razorpay-Signature': signature }), ...extraHeaders }, body: raw })
     const text = await response.text()
     assert.ok(!text.includes(secret) && !text.includes('pay_fixture123'))
     if (signature) assert.ok(!text.includes(signature))
-    assert.equal(JSON.parse(text).success, false)
+    assert.equal(JSON.parse(text).success, response.status === 200)
     return { status: response.status, message: JSON.parse(text).message, retry: response.headers.get('retry-after') }
   }
   try {
-    await t.test('valid exact raw bytes return retryable 503, never success', async () => {
+    await t.test('valid exact raw bytes are acknowledged after reconciliation', async () => {
       const result = await send(body)
-      assert.equal(result.status, 503); assert.equal(result.retry, '300')
-      assert.match(result.message, /not enabled/)
+      assert.equal(result.status, 200); assert.equal(result.retry, null)
+      assert.equal((await send(body)).status, 200)
+      assert.equal(receipts.size, 1, 'Duplicate receipt does not create a second event or unlock access')
+      assert.equal((await send(body, sign(body), { 'X-Razorpay-Event-Id': '' })).status, 400)
       assert.equal((await send(body + ' ', sign(body))).status, 401)
     })
     await t.test('missing, malformed and invalid signatures rejected before parsing', async () => {
@@ -42,11 +50,11 @@ test('isolated webhook HTTP validation and raw-body middleware ordering', async 
         assert.equal((await send(JSON.stringify(value))).status, 400)
       }
     })
-    await t.test('supported payment and refund events remain unprocessed', async () => {
+    await t.test('supported payment and refund events reach reconciliation', async () => {
       for (const event of ['payment.failed', 'payment.refunded', 'refund.created', 'refund.processed', 'refund.failed']) {
         const refund = event.startsWith('refund.')
         const payload = refund ? { refund: { entity: { entity: 'refund', id: 'rfnd_fixture123', payment_id: 'pay_fixture123' } } } : JSON.parse(body).payload
-        assert.equal((await send(JSON.stringify({ entity: 'event', event, payload }))).status, 503)
+        assert.equal((await send(JSON.stringify({ entity: 'event', event, payload }))).status, 200)
       }
     })
     await t.test('missing secret fails closed', async () => {
@@ -67,6 +75,7 @@ test('isolated webhook HTTP validation and raw-body middleware ordering', async 
       assert.deepEqual(await response.json(), { ok: true })
     })
   } finally {
+    if (previousEnabled === undefined) delete process.env.RAZORPAY_LIVE_ENABLED; else process.env.RAZORPAY_LIVE_ENABLED = previousEnabled
     await new Promise(resolve => server.close(resolve))
     if (previous === undefined) delete process.env.RAZORPAY_WEBHOOK_SECRET
     else process.env.RAZORPAY_WEBHOOK_SECRET = previous

@@ -1,4 +1,4 @@
-﻿import mongoose from 'mongoose'
+import mongoose from 'mongoose'
 
 const { Schema, model } = mongoose
 
@@ -13,6 +13,9 @@ const webhookEventSchema = new Schema({
     type: String,
     required: true
   },
+  payloadHash: String,
+  leaseToken: String,
+  leaseUntil: Date,
   paymentId: String,
   orderId: String,
   status: {

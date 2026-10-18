@@ -1,10 +1,13 @@
-﻿import { BatchEnrollment } from '../models/learning.js'
+import { reconcileLivePayment } from '../services/razorpay-reconcile.js'
+import { findCapturedOrderPayment } from '../services/razorpay-order-recovery.js'
+import { BatchEnrollment } from '../models/learning.js'
 import { getConfig } from '../models/management.js'
 import { ensureMonthlyEnrollment, paidEnrollment } from '../services/monthly-enrollment.js'
 import { problem } from '../services/learning-access.js'
 import { paise } from '../services/razorpay-test.js'
-import { liveCredentials, liveRazorpay, verifiedLivePayment } from '../services/razorpay-live.js'
+import { liveCredentials, liveRazorpay, verifiedLivePayment, livePaymentAvailability, requireLiveActivation } from '../services/razorpay-live.js'
 import { respond } from '../utils/api.js'
+import { normalizeInternshipDomain } from '../../shared/internship-domain.js'
 
 async function liveContext(student, domain) {
   const config = await getConfig()
@@ -13,7 +16,7 @@ async function liveContext(student, domain) {
     throw problem('LIVE internship payments are not enabled.', 503)
   }
 
-  liveCredentials()
+  requireLiveActivation()
 
   const result = await ensureMonthlyEnrollment(student, domain)
 
@@ -122,6 +125,7 @@ export async function createLiveOrder(req, res) {
 
 
 export async function verifyLiveOrder(req, res) {
+  requireLiveActivation()
   const orderId = req.body?.razorpay_order_id
 
   if (
@@ -145,45 +149,113 @@ export async function verifyLiveOrder(req, res) {
     req.body
   )
 
-  if (
-    enrollment.livePayment.status === 'Paid' &&
-    enrollment.livePayment.paymentId !== paymentId
-  ) {
-    throw problem('Order already verified with another payment.', 409)
-  }
-
-  const saved = await BatchEnrollment.updateOne(
-    {
-      _id: enrollment._id,
-      'livePayment.orderId': orderId,
-      'livePayment.status': { $ne: 'Paid' },
-      paymentStatus: { $nin: ['Paid', 'PAID'] }
-    },
-    {
-      $set: {
-        'livePayment.status': 'Paid',
-        'livePayment.paymentId': paymentId,
-        'livePayment.verifiedAt': new Date(),
-        paymentStatus: 'PAID',
-        paymentMode: 'live',
-        learningAccessStatus: 'UNLOCKED'
-      }
-    }
-  )
-
-  if (!saved.modifiedCount) {
-    const current = await BatchEnrollment.findById(enrollment._id).lean()
-
-    if (
-      current?.livePayment?.status !== 'Paid' ||
-      current.livePayment.paymentId !== paymentId
-    ) {
-      throw problem('LIVE payment verification conflict.', 409)
-    }
-  }
+  const result = await reconcileLivePayment(paymentId, req.student._id)
+  if (result.status !== 'Paid') throw problem('Payment is refunded or is not verified for learning access.', 409)
 
   return respond(res, {
     status: 'Paid',
     mode: 'live'
   })
+}
+
+function requiredRecoveryDomain(value) {
+  const domain = normalizeInternshipDomain(value)
+  if (!domain) {
+    throw problem('A valid internship domain is required.', 400)
+  }
+  return domain
+}
+export async function recoverLiveOrder(req, res) {
+  requireLiveActivation()
+
+  const domain = requiredRecoveryDomain(req.body?.domain)
+
+  const enrollment = await BatchEnrollment.findOne({
+    student: req.student._id,
+    domain,
+    status: 'Enrolled',
+    'livePayment.orderId': { $exists: true }
+  }).sort({ createdAt: -1 }).lean()
+
+  if (!enrollment) {
+    throw problem('No existing LIVE payment order was found.', 404)
+  }
+
+  const payment = enrollment.livePayment
+
+  if (payment.status === 'Paid') {
+    if (!payment.paymentId) {
+      throw problem('Paid enrollment has no verified payment ID. Administrator review required.', 409)
+    }
+
+    const reconciled = await reconcileLivePayment(
+      payment.paymentId,
+      req.student._id
+    )
+
+    return respond(res, {
+      status: reconciled.status,
+      message: reconciled.status === 'Paid'
+        ? 'Payment remains verified.'
+        : 'Payment status changed. Learning access requires review.'
+    })
+  }
+
+  const result = await findCapturedOrderPayment(
+    payment.orderId,
+    payment.amount,
+    String(enrollment._id)
+  )
+
+  if (result.status !== 'Found') {
+    return respond(res, {
+      status: 'Pending',
+      message: 'No captured payment found. Do not pay again until payment status is confirmed.'
+    })
+  }
+
+  const reconciled = await reconcileLivePayment(
+    result.paymentId,
+    req.student._id
+  )
+
+  return respond(res, {
+    status: reconciled.status,
+    message: reconciled.status === 'Paid'
+      ? 'Payment verified. Learning access is now available.'
+      : 'Payment requires review. Learning access remains restricted.'
+  })
+}
+export async function liveRecoveryStatus(req, res) {
+  const domain = requiredRecoveryDomain(req.query?.domain)
+
+  const enrollment = await BatchEnrollment.findOne({
+    student: req.student._id,
+    domain,
+    'livePayment.orderId': { $exists: true }
+  }).sort({ createdAt: -1 }).lean()
+
+  if (!enrollment) {
+    return respond(res, {
+      status: 'NotStarted',
+      hasOrder: false,
+      canRetryPayment: false
+    })
+  }
+
+  const payment = enrollment.livePayment
+
+  return respond(res, {
+    status: payment?.status || 'Pending',
+    hasOrder: Boolean(payment?.orderId),
+    canRetryPayment: false,
+    requiresReview: !['Paid'].includes(payment?.status),
+    message: payment?.status === 'Paid'
+      ? 'Payment recorded as verified.'
+      : 'Payment requires provider verification. Do not pay again until reconciliation completes.'
+  })
+}
+export async function liveStatus(_req, res) {
+  const config = await getConfig()
+  return respond(res, livePaymentAvailability(config.settings.internshipPaymentsEnabled))
 }
