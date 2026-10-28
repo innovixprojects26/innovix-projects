@@ -18,7 +18,96 @@ enrollment.add({ livePayment: { type: new Schema({
   amountRefunded: { type: Number, min: 0 },
   reconciledAt: Date
 }, { _id: false }), default: undefined } })
-enrollment.index({ student: 1, status: 1 }, { unique: true, partialFilterExpression: { status: 'Enrolled' } })
+const offlinePayment = new Schema({
+  accessSource: { type: String, enum: ['ADMIN_OFFLINE_PAYMENT'], required: true, immutable: true },
+  status: { type: String, enum: ['Admin Verified'], required: true, immutable: true },
+  amountPaise: { type: Number, min: 1, required: true, immutable: true },
+  currency: { type: String, enum: ['INR'], required: true, immutable: true },
+  method: { type: String, enum: ['UPI', 'Bank Transfer', 'Cash'], required: true, immutable: true },
+  transactionReference: { type: String, trim: true, maxlength: 160, immutable: true },
+  paymentDate: { type: Date, required: true, immutable: true },
+  receiptNumber: { type: String, immutable: true },
+  student: { type: Schema.Types.ObjectId, ref: 'Student', required: true, immutable: true },
+  internship: { type: Schema.Types.ObjectId, ref: 'InternshipDomain', required: true, immutable: true },
+  studentName: { ...text(120, true), immutable: true },
+  studentEmail: { ...text(254, true), immutable: true },
+  internshipTitle: { ...text(120, true), immutable: true },
+  approvedBy: { type: Schema.Types.ObjectId, ref: 'Admin', required: true, immutable: true },
+  approvedAdminEmail: { ...text(254, true), immutable: true },
+  confirmedAt: { type: Date, required: true, immutable: true },
+  idempotencyKey: { ...text(80, true), immutable: true },
+  internalNote: { type: String, trim: true, maxlength: 1000, select: false, immutable: true }
+}, { timestamps: true })
+const offlineAccessGrant = new Schema({
+  accessSource: { type: String, enum: ['ADMIN_OFFLINE_PAYMENT'], required: true },
+  internship: { type: Schema.Types.ObjectId, ref: 'InternshipDomain', required: true },
+  paymentRecordId: { type: Schema.Types.ObjectId, required: true },
+  active: { type: Boolean, default: true, required: true },
+  grantedBy: { type: Schema.Types.ObjectId, ref: 'Admin', required: true },
+  grantedAt: { type: Date, required: true },
+  revokedBy: { type: Schema.Types.ObjectId, ref: 'Admin' },
+  revokedAt: Date,
+  revokeReason: { type: String, trim: true, maxlength: 500 }
+}, { _id: false })
+const customAdminPayment = new Schema({
+  accessSource: { type: String, enum: ['ADMIN_CUSTOM_PAYMENT'], required: true, immutable: true },
+  status: { type: String, enum: ['Pending', 'Admin Verified'], default: 'Pending' },
+  agreedAmountPaise: { type: Number, min: 1, required: true, immutable: true },
+  amountPaise: { type: Number, min: 1 },
+  currency: { type: String, enum: ['INR'], default: 'INR', required: true, immutable: true },
+  method: { type: String, enum: ['UPI', 'Bank Transfer', 'Cash'] },
+  transactionReference: { type: String, trim: true, maxlength: 160 },
+  paymentDate: Date,
+  receiptNumber: String,
+  student: { type: Schema.Types.ObjectId, ref: 'Student', required: true, immutable: true },
+  internship: { type: Schema.Types.ObjectId, ref: 'InternshipDomain', required: true, immutable: true },
+  domain: { ...text(100, true), immutable: true },
+  studentName: { ...text(120, true), immutable: true },
+  studentEmail: { ...text(254, true), immutable: true },
+  internshipTitle: { ...text(120, true), immutable: true },
+  approvedBy: { type: Schema.Types.ObjectId, ref: 'Admin', required: true, immutable: true },
+  approvedAdminEmail: { ...text(254, true), immutable: true },
+  confirmedBy: { type: Schema.Types.ObjectId, ref: 'Admin' },
+  confirmedAdminEmail: { type: String, trim: true, maxlength: 254 },
+  confirmedAt: Date,
+  idempotencyKey: { ...text(80, true), immutable: true },
+  internalNote: { type: String, trim: true, maxlength: 1000, select: false, immutable: true }
+}, { timestamps: true })
+const adminAccessGrant = new Schema({
+  accessSource: { type: String, enum: ['ADMIN_FREE_ACCESS', 'ADMIN_CUSTOM_PAYMENT'], required: true, immutable: true },
+  student: { type: Schema.Types.ObjectId, ref: 'Student', required: true, immutable: true },
+  internship: { type: Schema.Types.ObjectId, ref: 'InternshipDomain', required: true, immutable: true },
+  domain: { ...text(100, true), immutable: true },
+  active: { type: Boolean, default: true, required: true },
+  approvedBy: { type: Schema.Types.ObjectId, ref: 'Admin', required: true, immutable: true },
+  approvedAt: { type: Date, required: true, immutable: true },
+  reason: { type: String, trim: true, maxlength: 500, immutable: true },
+  customPaymentId: { type: Schema.Types.ObjectId, immutable: true },
+  idempotencyKey: { ...text(80, true), immutable: true },
+  revokedBy: { type: Schema.Types.ObjectId, ref: 'Admin' },
+  revokedAt: Date,
+  revokeReason: { type: String, trim: true, maxlength: 500 }
+}, { timestamps: true })
+const offlineAccessEvent = new Schema({
+  action: { type: String, enum: ['OFFLINE_PAYMENT_CONFIRMED', 'ACCESS_GRANTED', 'RECEIPT_ISSUED', 'ACCESS_REVOKED', 'FREE_ACCESS_GRANTED', 'CUSTOM_PAYMENT_AGREEMENT_SAVED', 'CUSTOM_PAYMENT_CONFIRMED'], required: true, immutable: true },
+  accessSource: { type: String, enum: ['ADMIN_OFFLINE_PAYMENT', 'ADMIN_FREE_ACCESS', 'ADMIN_CUSTOM_PAYMENT'], immutable: true },
+  admin: { type: Schema.Types.ObjectId, ref: 'Admin', required: true, immutable: true },
+  student: { type: Schema.Types.ObjectId, ref: 'Student', required: true, immutable: true },
+  internship: { type: Schema.Types.ObjectId, ref: 'InternshipDomain', required: true, immutable: true },
+  paymentRecordId: { type: Schema.Types.ObjectId, immutable: true },
+  accessGrantId: { type: Schema.Types.ObjectId, immutable: true },
+  amountPaise: { type: Number, min: 1, immutable: true },
+  reason: { type: String, trim: true, maxlength: 500, immutable: true },
+  occurredAt: { type: Date, default: Date.now, required: true, immutable: true }
+}, { _id: false })
+enrollment.add({
+  offlinePayments: { type: [offlinePayment], default: undefined },
+  offlineAccessGrant: { type: offlineAccessGrant, default: undefined },
+  offlineAccessEvents: { type: [offlineAccessEvent], default: undefined },
+  customAdminPayments: { type: [customAdminPayment], default: undefined },
+  adminAccessGrants: { type: [adminAccessGrant], default: undefined }
+})
+enrollment.index({ student: 1, domain: 1 }, { unique: true, partialFilterExpression: { status: 'Enrolled' } })
 enrollment.index({ student: 1, batch: 1, createdAt: -1 })
 export const BatchEnrollment = model('BatchEnrollment', enrollment)
 const task = new Schema({ stage: { type: String, enum: ['Task', 'Project'], default: 'Task' }, title: text(160, true), description: text(2000, true), instructions: text(8000), domain: text(100, true), scope: { type: String, enum: ['Domain', 'Batch', 'Student'], required: true }, batch: ref('InternshipBatch'), student: ref('Student'), assignedDate: { type: Date, required: true }, dueDate: { type: Date, required: true }, maximumMarks: { type: Number, min: 1, max: 10000 }, referenceUrl: text(2000), methods: { type: [String], default: ['text', 'github', 'demo', 'file'] }, required: { type: Boolean, default: true }, attachment: ref('LearningFile'), status: { type: String, enum: taskStatuses, default: 'Draft', index: true } }, { timestamps: true })

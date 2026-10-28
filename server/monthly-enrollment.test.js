@@ -100,7 +100,12 @@ test('automatic monthly enrollments are concurrent-safe, reported by month/domai
     assert.equal((await InternshipBatch.findById(nov.enrollment.batch._id)).enrollmentCount, 1)
     assert.equal(await BatchEnrollment.countDocuments({ student: invalid._id }), 0)
     await assert.rejects(ensureMonthlyEnrollment({ ...student, internshipDomain: 'AI Tools' }, 'AI Tools'), /unavailable/)
-    await assert.rejects(ensureMonthlyEnrollment(student, 'Python Developer'), /registered/)
+    // A student may join another internship without losing the original paid enrollment.
+    const secondDomain = await ensureMonthlyEnrollment(student, 'Python Developer')
+    assert.equal(secondDomain.enrollment.domain, 'Python Developer')
+    assert.equal(secondDomain.enrollment.paymentStatus, 'NOT_PAID')
+    assert.notEqual(String(secondDomain.enrollment._id), String(item._id))
+    assert.equal((await BatchEnrollment.findById(item._id)).paymentStatus, 'Paid')
   } finally {
     if (mongoose.connection.name === dbName && dbName.startsWith('monthly_')) await mongoose.connection.dropDatabase()
     await mongoose.disconnect()

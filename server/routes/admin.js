@@ -1,4 +1,4 @@
-import { audit, validateId, readConfig, saveConfig, listDomains, updateDomain, students, studentStatus, announcements, saveAnnouncement, deleteAnnouncement, adminProfile, activity } from '../controllers/management.js'
+import { audit, validateId, readConfig, saveConfig, listDomains, updateDomain, students, studentOfflineAccess, confirmOfflinePayment, revokeOfflinePaymentAccess, grantFreeInternshipAccess, createCustomPaymentAgreement, confirmCustomPaymentReceived, revokeAdminAccessGrant, studentStatus, announcements, saveAnnouncement, deleteAnnouncement, adminProfile, activity } from '../controllers/management.js'
 import { Router } from 'express'
 import { adminNews, saveNews, deleteNews } from '../controllers/tech-news.js'
 import { createProject, createTestimonial, dashboard, adminProjects, deleteMessage, deleteProject, deleteTestimonial, decideInternshipApplication, listAdminTestimonials, listCollection, listMessages, login, updateMessageRead, updateProject, updateStatus, updateTestimonial } from '../controllers/admin.js'
@@ -28,6 +28,13 @@ router.put('/configuration/:section', saveConfig)
 router.get('/internship-domains', listDomains)
 router.patch('/internship-domains/:id', updateDomain)
 router.get('/students', students)
+router.get('/students/:id/offline-access', studentOfflineAccess)
+router.post('/students/:id/offline-payments', confirmOfflinePayment)
+router.patch('/students/:id/offline-access/:enrollmentId/revoke', revokeOfflinePaymentAccess)
+router.post('/students/:id/special-access/free', grantFreeInternshipAccess)
+router.post('/students/:id/custom-payments', createCustomPaymentAgreement)
+router.post('/students/:id/custom-payments/:paymentId/confirm', confirmCustomPaymentReceived)
+router.patch('/students/:id/special-access/:grantId/revoke', revokeAdminAccessGrant)
 router.patch('/students/:id/account-status', studentStatus)
 router.patch('/internships/:id/decision', decideInternshipApplication)
 router.get('/announcements', announcements)

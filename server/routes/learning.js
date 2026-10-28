@@ -1,4 +1,6 @@
 
+import { selectLearningDomain } from '../middleware/learning-domain.js'
+
 import { Router } from 'express'
 import rateLimit from 'express-rate-limit'
 import { requireAuth } from '../middleware/auth.js'
@@ -73,7 +75,7 @@ const requirePaidLearning = async (req, _res, next) => {
 // STUDENT ROUTES
 export const learningStudentRoutes = Router()
 
-learningStudentRoutes.use(requireStudent, noStore)
+learningStudentRoutes.use(requireStudent, selectLearningDomain, noStore)
 learningStudentRoutes.param('id', ids)
 
 // Available before payment so students can view progress/payment details.

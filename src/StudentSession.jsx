@@ -1,3 +1,4 @@
+import { selectInternship } from './selected-internship.js'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { ChevronDown } from 'lucide-react'
@@ -7,6 +8,9 @@ import './student-auth.css'
 
 export function StudentSessionProvider({ children }) {
   const [state, setState] = useState({ student: null, csrfToken: '', expiresAt: null, loading: true, error: '' })
+  const location = useLocation()
+  const selectedDomain = selectInternship(state.student, location)
+  const selectedStudent = state.student ? { ...state.student, registeredDomain: state.student.internshipDomain, internshipDomain: selectedDomain } : null
   const generation = useRef(0)
   const channel = useRef(null)
   const refresh = useCallback(async () => {
@@ -46,7 +50,7 @@ export function StudentSessionProvider({ children }) {
     catch (error) { if (error.status !== 401) throw error }
     generation.current++; setState({ student: null, csrfToken: '', expiresAt: null, loading: false, error: '' }); channel.current?.postMessage('changed')
   }
-  return <StudentSessionContext.Provider value={{ ...state, login, logout, refresh }}>{children}</StudentSessionContext.Provider>
+  return <StudentSessionContext.Provider key={`${state.student?.studentId}:${selectedDomain}`} value={{ ...state, student: selectedStudent, login, logout, refresh }}>{children}</StudentSessionContext.Provider>
 }
 
 export function RequireStudent({ children }) {

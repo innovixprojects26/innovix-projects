@@ -1,6 +1,6 @@
+import { selectedEnrollment } from './enrollment-selection.js'
 
 import {
-  BatchEnrollment,
   InternshipTask,
   TaskSubmission,
   VideoProgress
@@ -24,13 +24,7 @@ import {
 // Empty curricula remain locked until Admin configures them.
 
 export async function learningStages(student, enrollment) {
-  const current = enrollment || await BatchEnrollment.findOne({
-    student: student._id,
-    status: { $in: ['Enrolled', 'Completed'] }
-  })
-    .sort({ createdAt: -1 })
-    .populate('batch')
-    .lean()
+  const current = enrollment || await selectedEnrollment(student)
 
   const domain = normalizeInternshipDomain(
     current?.batch?.domain || student.internshipDomain

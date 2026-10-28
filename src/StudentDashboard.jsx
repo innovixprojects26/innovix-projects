@@ -36,18 +36,21 @@ export function StudentDashboard({ internshipOnly = false }) {
 
   const [attempt, setAttempt] = useState(0)
 
+  const requestKey = `${student.studentId || student._id}:${student.internshipDomain}:${attempt}`
+
   useEffect(() => {
     let active = true
 
-    studentFetch('/student/dashboard')
+    studentFetch(`/student/dashboard?domain=${encodeURIComponent(student.internshipDomain)}`)
       .then(data => {
-        if (active) setState({ data, error: '' })
+        if (active) setState({ data, error: '', key: requestKey })
       })
       .catch(error => {
         if (active) {
           setState({
             data: null,
-            error: error.message
+            error: error.message,
+            key: requestKey
           })
         }
       })
@@ -55,7 +58,7 @@ export function StudentDashboard({ internshipOnly = false }) {
     return () => {
       active = false
     }
-  }, [attempt, student.studentId])
+  }, [requestKey, student.internshipDomain])
 
   useEffect(() => {
     const refresh = () => {
@@ -75,7 +78,8 @@ export function StudentDashboard({ internshipOnly = false }) {
     }
   }, [])
 
-  const data = state.data
+  const currentState = state.key === requestKey ? state : { data: null, error: '' }
+  const data = currentState.data && sameInternshipDomain(currentState.data.student?.internshipDomain, student.internshipDomain) ? currentState.data : null
   const paid = hasVerifiedTestPayment(data)
 
   const recordedAvailable =
@@ -146,6 +150,8 @@ export function StudentDashboard({ internshipOnly = false }) {
           )}
       </nav>
 
+      <label>Selected internship <select aria-label="Selected internship" value={student.internshipDomain} onChange={event => { window.location.assign(`/student/internship?domain=${encodeURIComponent(event.target.value)}`) }}>{domains.filter(item => item.active && item.name !== 'AI Tools').map(item => <option key={item.name} value={item.name}>{internshipDisplayName(item.name)}</option>)}</select></label>
+
       <dl className="student-info-grid">
         <div>
           <dt>Student ID</dt>
@@ -172,9 +178,9 @@ export function StudentDashboard({ internshipOnly = false }) {
         </div>
       </dl>
 
-      {state.error && (
+      {currentState.error && (
         <div role="alert">
-          <p>{state.error}</p>
+          <p>{currentState.error}</p>
 
           <button
             type="button"
@@ -189,7 +195,7 @@ export function StudentDashboard({ internshipOnly = false }) {
         </div>
       )}
 
-      {!data && !state.error && (
+      {!data && !currentState.error && (
         <p role="status">
           Loading your learning space...
         </p>
@@ -208,7 +214,7 @@ export function StudentDashboard({ internshipOnly = false }) {
               Learning payment:{' '}
               <strong>
                 {data.paymentVerified
-                  ? 'Payment Verified'
+                  ? data.accessLabel || 'Payment Verified'
                   : 'Payment Pending'}
               </strong>
             </p>
@@ -260,7 +266,7 @@ export function StudentDashboard({ internshipOnly = false }) {
               {recordedAvailable ? (
                 <Link
                   className="button button-outline"
-                  to="/student/recorded-classes"
+                  to={`/student/recorded-classes?domain=${encodeURIComponent(student.internshipDomain)}`}
                 >
                   View Recorded Classes
                 </Link>
@@ -429,20 +435,23 @@ export function StudentRecordedClasses() {
 
   const [attempt, setAttempt] = useState(0)
 
+  const requestKey = `${student.studentId || student._id}:${student.internshipDomain}:${attempt}`
+
   useEffect(() => {
     let active = true
 
-    studentFetch('/student/dashboard')
+    studentFetch(`/student/dashboard?domain=${encodeURIComponent(student.internshipDomain)}`)
       .then(data => {
         if (active) {
-          setState({ data, error: '' })
+          setState({ data, error: '', key: requestKey })
         }
       })
       .catch(error => {
         if (active) {
           setState({
             data: null,
-            error: error.message
+            error: error.message,
+            key: requestKey
           })
         }
       })
@@ -450,7 +459,7 @@ export function StudentRecordedClasses() {
     return () => {
       active = false
     }
-  }, [student.studentId, attempt])
+  }, [requestKey, student.internshipDomain])
 
   useEffect(() => {
     const refresh = () => {
@@ -470,17 +479,19 @@ export function StudentRecordedClasses() {
     }
   }, [])
 
-  const paid = hasVerifiedTestPayment(state.data)
+  const currentState = state.key === requestKey ? state : { data: null, error: '' }
+  const data = currentState.data && sameInternshipDomain(currentState.data.student?.internshipDomain, student.internshipDomain) ? currentState.data : null
+  const paid = hasVerifiedTestPayment(data)
 
-  if (state.error) {
+  if (currentState.error) {
     return (
       <section className="section container">
-        <p role="alert">{state.error}</p>
+        <p role="alert">{currentState.error}</p>
       </section>
     )
   }
 
-  if (!state.data) {
+  if (!data) {
     return (
       <section className="section container">
         Loading recorded classes...
@@ -500,7 +511,7 @@ export function StudentRecordedClasses() {
         ← Back to Dashboard
       </Link>
 
-      {!paid && state.data.paymentVerified ? <p>{state.data.internshipStatusNote}</p> : !paid ? (
+      {!paid && data.paymentVerified ? <p>{data.internshipStatusNote}</p> : !paid ? (
         <>
           <p>
             Payment Pending. Complete your internship
@@ -518,7 +529,7 @@ export function StudentRecordedClasses() {
           </Link>
         </>
       ) : track?.recordedClassesEnabled &&
-        state.data.recordedClassesAvailable ? (
+        data.recordedClassesAvailable ? (
         <RecordedClasses
           domain={student.internshipDomain}
           onClose={() => navigate('/student')}

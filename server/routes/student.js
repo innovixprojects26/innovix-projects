@@ -1,4 +1,6 @@
-import { paidEnrollment } from '../services/monthly-enrollment.js'
+import { selectLearningDomain } from '../middleware/learning-domain.js'
+import { selectedEnrollment } from '../services/enrollment-selection.js'
+import { activeAdminAccessSource, paymentAllowsLearning } from '../services/monthly-enrollment.js'
 import { studentHasDomainAccess } from '../services/learning-access.js'
 
 import { loginOnDevice, verifyDevice } from '../services/student-device.js'
@@ -20,7 +22,6 @@ import {
 import { fail, respond, validateEmail } from '../utils/api.js'
 import { normalizePhone } from '../../shared/phone.js'
 import { passwordError, studentDomains, studyYears } from '../../shared/student.js'
-import { BatchEnrollment } from '../models/learning.js'
 import { getConfig, getDomain } from '../models/management.js'
 import { resetEmailConfigured, sendStudentResetEmail, sendStudentDeviceEmail } from '../services/student-reset-email.js'
 
@@ -194,19 +195,11 @@ export function createStudentRouter({
   )
 
   // PAYMENT-VERIFIED STUDENT DASHBOARD
-  router.get('/dashboard', requireStudent, async (req, res) => {
+  router.get('/dashboard', requireStudent, selectLearningDomain, async (req, res) => {
     const track = await getDomain(req.student.internshipDomain)
     const { settings } = await getConfig()
 
-    const enrollment = settings.batchesEnabled
-      ? await BatchEnrollment.findOne({
-          student: req.student._id,
-          status: { $in: ['Enrolled', 'Completed'] }
-        })
-          .sort({ createdAt: -1 })
-          .populate('batch')
-          .lean()
-      : null
+    const enrollment = settings.batchesEnabled ? await selectedEnrollment(req.student) : null
 
     const hasEnrollment = Boolean(
       enrollment?.batch?.enabled &&
@@ -217,8 +210,16 @@ export function createStudentRouter({
       !['Draft', 'Cancelled'].includes(enrollment.batch.status)
     )
 
-    // Only backend-verified Razorpay TEST payments count.
-    const paymentVerified = paidEnrollment(enrollment)
+    // The server verifies payment or the selected admin-approved grant.
+    const paymentVerified = paymentAllowsLearning(enrollment)
+    const accessSource = activeAdminAccessSource(enrollment)
+    const accessLabel = accessSource === 'ADMIN_FREE_ACCESS'
+      ? 'Admin Approved — Free Access'
+      : accessSource === 'ADMIN_CUSTOM_PAYMENT'
+        ? 'Admin Approved — Custom Payment'
+        : accessSource === 'ADMIN_OFFLINE_PAYMENT'
+          ? 'Admin Approved — Offline Payment'
+          : paymentVerified ? 'Payment Verified' : 'Payment Pending'
     const hasDomainAccess = await studentHasDomainAccess(req.student, enrollment)
 
     const liveClassAllowed = Boolean(
@@ -233,15 +234,16 @@ export function createStudentRouter({
 
       paymentVerified,
       hasDomainAccess,
+      accessLabel,
 
       internshipStatus: hasDomainAccess
-        ? 'Payment Verified - Classes Unlocked'
+        ? `${accessLabel} — Classes Unlocked`
         : paymentVerified ? 'Payment verified - access unavailable' : hasEnrollment
           ? 'Payment Required'
           : 'Account registered',
 
       internshipStatusNote: hasDomainAccess
-        ? 'Your test payment is verified. Your internship classes are unlocked.'
+        ? `${accessLabel}. Your internship classes are unlocked.`
         : paymentVerified ? 'Contact Admin to check your batch and domain availability.' : hasEnrollment
           ? 'Complete payment to unlock your internship classes.'
           : 'Select your internship domain to enroll automatically and continue to payment.',

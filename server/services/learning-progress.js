@@ -1,4 +1,8 @@
 
+import { ContentVideo } from '../models/content-video.js'
+import { sameInternshipDomain } from '../../shared/internship-domain.js'
+import { matchesEnrollmentDomain } from './enrollment-selection.js'
+
 import { learningStages } from './learning-stages.js'
 import { paymentAllowsLearning } from './monthly-enrollment.js'
 import { getDomain, getConfig } from '../models/management.js'
@@ -6,7 +10,6 @@ import {
   BatchEnrollment,
   InternshipTask,
   TaskSubmission,
-  VideoProgress,
   LearningActivity,
   Certificate
 } from '../models/learning.js'
@@ -109,9 +112,8 @@ export async function learningProgress(student) {
         .lean()
     : []
 
-  const current =
-    enrollments.find(item => item.status === 'Enrolled') ||
-    enrollments.find(item => item.status === 'Completed')
+  const matching = enrollments.filter(item => matchesEnrollmentDomain(item, student.internshipDomain))
+  const current = matching.find(item => item.status === 'Enrolled') || matching.find(item => item.status === 'Completed')
 
   const domain = await getDomain(student.internshipDomain)
 
@@ -161,23 +163,19 @@ export async function learningProgress(student) {
         .slice(0, 5)
     : []
 
+  const domainVideos = (await ContentVideo.find().select('_id domain').lean()).filter(item => sameInternshipDomain(item.domain || 'Content Creation', student.internshipDomain))
+  const activityKeys = [...tasks.flatMap(item => [`submit:${item._id}`, `complete:${item._id}`]), ...domainVideos.map(item => `video:${item._id}`)]
   const [
-    videos,
     discoveries,
     activity,
     certificates
   ] = await Promise.all([
-    VideoProgress.countDocuments({
-      student: student._id,
-      completedAt: { $ne: null }
-    }),
-
     DiscoverRead.countDocuments({
       student: student._id
     }),
 
     LearningActivity.find({
-      student: student._id
+      student: student._id, key: { $in: activityKeys }
     })
       .sort({ createdAt: -1 })
       .limit(30)
@@ -227,18 +225,18 @@ export async function learningProgress(student) {
     stages,
     payment,
     enrollment: current || null,
-    history: enrollments,
+    history: matching,
     internshipProgress: current?.batch
       ? batchProgress(current.batch)
       : null,
     tasksAssigned: tasks.length,
     tasksCompleted: completed,
     tasksPending: tasks.length - completed,
-    videosWatched: videos,
+    videosWatched: stages.completedVideos,
     discoveriesRead: discoveries,
     upcoming,
     activity,
-    certificates,
+    certificates: certificates.filter(item => matchesEnrollmentDomain({ batch: { domain: item.domain } }, student.internshipDomain)),
     eligibility:
       current && settings.certificateVerificationEnabled
         ? await eligibility(student, current)

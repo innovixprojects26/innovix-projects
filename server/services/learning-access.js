@@ -1,3 +1,4 @@
+import { selectedEnrollment, matchesEnrollmentDomain } from './enrollment-selection.js'
 import { paymentAllowsLearning } from './monthly-enrollment.js'
 
 import mongoose from 'mongoose'
@@ -5,7 +6,7 @@ import { requireLearningStage } from './learning-stages.js'
 import { sameInternshipDomain } from '../../shared/internship-domain.js'
 import { getConfig, getDomain } from '../models/management.js'
 import { InternshipApplication } from '../models/index.js'
-import { BatchEnrollment, InternshipTask, InternshipBatch } from '../models/learning.js'
+import { InternshipTask } from '../models/learning.js'
 
 export const problem = (message, status = 400) =>
   Object.assign(new Error(message), { status })
@@ -21,20 +22,13 @@ export async function feature(name) {
 // Payment verification is compulsory for learning access.
 export async function studentHasDomainAccess(student, suppliedEnrollment) {
   if (!(await getConfig()).settings.batchesEnabled) return false
-  const domain = await getDomain(student.internshipDomain)
+  const enrollment = suppliedEnrollment || await selectedEnrollment(student)
+  const domain = await getDomain(enrollment?.batch?.domain || student.internshipDomain)
 
   // Temporarily disable AI Tools learning access.
   if (!domain?.active || domain.name === 'AI Tools') {
     return false
   }
-
-  const enrollment = suppliedEnrollment || await BatchEnrollment.findOne({
-    student: student._id,
-    status: { $in: ['Enrolled', 'Completed'] }
-  })
-    .sort({ createdAt: -1 })
-    .populate('batch', 'domain enabled status')
-    .lean()
 
   if (!enrollment?.batch) {
     return false
@@ -44,10 +38,7 @@ export async function studentHasDomainAccess(student, suppliedEnrollment) {
     String(enrollment.student) === String(student._id) &&
     ['Enrolled', 'Completed'].includes(enrollment.status) &&
     enrollment.batch.enabled &&
-    sameInternshipDomain(
-      enrollment.batch.domain,
-      student.internshipDomain
-    ) &&
+    matchesEnrollmentDomain(enrollment, domain.name) &&
     !['Draft', 'Cancelled'].includes(enrollment.batch.status)
   )
 
@@ -82,25 +73,13 @@ export async function taskQuery(
   student,
   { batchId, includeClosed = true } = {}
 ) {
-  const { settings } = await getConfig()
-
   if (!await studentHasDomainAccess(student)) {
     return { _id: { $exists: false } }
   }
 
-  const enrolled = settings.batchesEnabled
-    ? await BatchEnrollment.find({
-        student: student._id,
-        status: { $in: ['Enrolled', 'Completed'] },
-        ...(batchId ? { batch: batchId } : {})
-      }).distinct('batch')
-    : []
-
-  const batches = await InternshipBatch.find({
-    _id: { $in: enrolled },
-    enabled: true,
-    status: { $nin: ['Draft', 'Cancelled'] }
-  }).distinct('_id')
+  const current = await selectedEnrollment(student)
+  if (batchId && String(current?.batch?._id) !== String(batchId)) return { _id: { $exists: false } }
+  const batches = current?.batch ? [current.batch._id] : []
 
   const names = (await InternshipTask.distinct('domain'))
     .filter(name =>

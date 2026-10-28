@@ -1,3 +1,4 @@
+import { selectLearningDomain } from '../middleware/learning-domain.js'
 
 import { audit } from '../controllers/management.js'
 import { Router } from 'express'
@@ -37,6 +38,7 @@ export const contentVideoPublicRoutes = Router()
 contentVideoPublicRoutes.get(
   '/',
   requireStudent,
+  selectLearningDomain,
   requirePaidRecording,
   listContentVideos
 )
